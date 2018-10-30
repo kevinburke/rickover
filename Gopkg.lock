@@ -42,29 +42,6 @@
   version = "1.1"
 
 [[projects]]
-  digest = "1:c08c850e863f23ebbc1829dc5f498ed617371c812edd096ccabd2d3e005af361"
-  name = "github.com/Shyp/rickover"
-  packages = [
-    "config",
-    "dequeuer",
-    "downstream",
-    "models",
-    "models/archived_jobs",
-    "models/db",
-    "models/jobs",
-    "models/queued_jobs",
-    "rest",
-    "server",
-    "services",
-    "setup",
-    "test",
-    "test/factory",
-  ]
-  pruneopts = ""
-  revision = "9dccd70ded67e46d6f4c862cb55cc994e0c62bb3"
-  version = "1.1"
-
-[[projects]]
   digest = "1:9ca737b471693542351e112c9e86be9bf7385e42256893a09ecb2a98e2036f74"
   name = "github.com/go-stack/stack"
   packages = ["."]
@@ -167,19 +144,6 @@
     "github.com/Shyp/go-simple-metrics",
     "github.com/Shyp/go-types",
     "github.com/Shyp/rest",
-    "github.com/Shyp/rickover/config",
-    "github.com/Shyp/rickover/dequeuer",
-    "github.com/Shyp/rickover/downstream",
-    "github.com/Shyp/rickover/models",
-    "github.com/Shyp/rickover/models/archived_jobs",
-    "github.com/Shyp/rickover/models/db",
-    "github.com/Shyp/rickover/models/jobs",
-    "github.com/Shyp/rickover/models/queued_jobs",
-    "github.com/Shyp/rickover/server",
-    "github.com/Shyp/rickover/services",
-    "github.com/Shyp/rickover/setup",
-    "github.com/Shyp/rickover/test",
-    "github.com/Shyp/rickover/test/factory",
     "github.com/gorilla/handlers",
     "github.com/lib/pq",
     "github.com/nu7hatch/gouuid",

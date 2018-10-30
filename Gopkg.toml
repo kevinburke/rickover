@@ -22,15 +22,15 @@
 
 [[constraint]]
   name = "github.com/Shyp/go-dberror"
-  version = "0.5.0"
+  version = "~0.7.0"
 
 [[constraint]]
   name = "github.com/Shyp/go-simple-metrics"
-  version = "0.3.0"
+  version = "~0.3.0"
 
 [[constraint]]
   name = "github.com/Shyp/go-types"
-  version = "0.13.0"
+  version = "~0.23.0"
 
 [[constraint]]
   branch = "master"
