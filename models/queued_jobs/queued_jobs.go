@@ -177,9 +177,6 @@ func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt typ
 // Get the queued job with the given id. Returns the job, or an error. If no
 // record could be found, the error will be `queued_jobs.ErrNotFound`.
 func Get(id types.PrefixUUID) (*models.QueuedJob, error) {
-	if id.UUID == nil {
-		return nil, errors.New("Invalid id")
-	}
 	qj := new(models.QueuedJob)
 	var bt []byte
 	err := getStmt.QueryRow(id).Scan(args(qj, &bt)...)
@@ -208,9 +205,6 @@ func GetRetry(id types.PrefixUUID, attempts uint8) (job *models.QueuedJob, err e
 // Delete deletes the given queued job. Returns nil if the job was deleted
 // successfully. If no job exists to be deleted, sql.ErrNoRows is returned.
 func Delete(id types.PrefixUUID) error {
-	if id.UUID == nil {
-		return errors.New("Invalid id")
-	}
 	res, err := deleteStmt.Exec(id)
 	if err != nil {
 		return err
