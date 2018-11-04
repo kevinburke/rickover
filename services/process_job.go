@@ -91,6 +91,10 @@ func jitter(val float64) float64 {
 }
 
 func (jp JobProcessor) Sleep(failedAttempts uint32) time.Duration {
+	return GetSleepDuration(failedAttempts)
+}
+// GetSleepDuration calculates sleep duration
+func GetSleepDuration(failedAttempts uint32) time.Duration {
 	multiplier := math.Pow(jp.SleepFactor, float64(failedAttempts))
 	if multiplier > maxMultiplier {
 		multiplier = maxMultiplier
