@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/kevinburke/rickover/dequeuer"
-	"github.com/kevinburke/rickover/models"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
 )
@@ -156,7 +156,7 @@ func TestCreatePools(t *testing.T) {
 	test.Assert(t, foundPool, "Didn't create a pool for the job type")
 }
 
-func runDQBench(b *testing.B, concurrency int) {
+func runDQBench(b *testing.B, concurrency int16) {
 	buf := new(bytes.Buffer)
 	log.SetOutput(buf)
 	defer func() {
@@ -167,10 +167,10 @@ func runDQBench(b *testing.B, concurrency int) {
 	}()
 	test.SetUp(b)
 	defer test.TearDown(b)
-	job := factory.CreateJob(b, models.Job{
+	job := factory.CreateJob(b, newmodels.Job{
 		Name:             factory.RandomId("").String()[:8],
-		Concurrency:      uint8(concurrency),
-		DeliveryStrategy: models.StrategyAtLeastOnce,
+		Concurrency:      concurrency,
+		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         1,
 	})
 	data, _ := json.Marshal(factory.RD)

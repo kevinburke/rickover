@@ -81,21 +81,8 @@ func Get(name string) (*newmodels.Job, error) {
 	return &job, nil
 }
 
-func GetAll() ([]*models.Job, error) {
-	rows, err := getAllJobStmt.Query()
-	if err != nil {
-		return []*models.Job{}, err
-	}
-	defer rows.Close()
-	var jobs []*models.Job
-	for rows.Next() {
-		job := new(models.Job)
-		if err := rows.Scan(args(job)...); err != nil {
-			return jobs, err
-		}
-		jobs = append(jobs, job)
-	}
-	err = rows.Err()
+func GetAll() ([]newmodels.Job, error) {
+	jobs, err := newmodels.DB.GetAllJobs(context.TODO())
 	return jobs, err
 }
 

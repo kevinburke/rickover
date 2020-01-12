@@ -2,6 +2,7 @@
 package factory
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"github.com/kevinburke/go-types"
 	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/downstream"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -71,14 +71,14 @@ func CreateJob(t testing.TB, j newmodels.Job) newmodels.Job {
 
 // CreateQueuedJob creates a job and a queued job with the given JSON data, and
 // returns the created queued job.
-func CreateQueuedJob(t testing.TB, data json.RawMessage) *models.QueuedJob {
+func CreateQueuedJob(t testing.TB, data json.RawMessage) *newmodels.QueuedJob {
 	t.Helper()
 	_, qj := createJobAndQueuedJob(t, SampleJob, data, false)
 	return qj
 }
 
 // Like the above but with unique ID's and job names
-func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, *models.QueuedJob) {
+func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, *newmodels.QueuedJob) {
 	id := types.GenerateUUID("jobname_")
 	j := newmodels.Job{
 		Name:             id.String(),
@@ -89,9 +89,9 @@ func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, 
 	return createJobAndQueuedJob(t, j, data, true)
 }
 
-func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *models.QueuedJob {
+func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *newmodels.QueuedJob {
 	t.Helper()
-	expiresAt := types.NullTime{Valid: false}
+	expiresAt := sql.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 	id := RandomId("job_")
 	qj, err := queued_jobs.Enqueue(id, name, runAfter, expiresAt, data)
@@ -100,7 +100,7 @@ func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *model
 }
 
 // CreateQJ creates a job with a random name, and a random UUID.
-func CreateQJ(t testing.TB) *models.QueuedJob {
+func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	t.Helper()
 	test.SetUp(t)
 	jobname := RandomId("jobtype")
@@ -112,7 +112,7 @@ func CreateQJ(t testing.TB) *models.QueuedJob {
 	})
 	test.AssertNotError(t, err, "create job failed")
 	now := time.Now().UTC()
-	expires := types.NullTime{
+	expires := sql.NullTime{
 		Time:  now.Add(5 * time.Minute),
 		Valid: true,
 	}
@@ -123,10 +123,10 @@ func CreateQJ(t testing.TB) *models.QueuedJob {
 	return qj
 }
 
-func CreateArchivedJob(t *testing.T, data json.RawMessage, status models.JobStatus) *models.ArchivedJob {
+func CreateArchivedJob(t *testing.T, data json.RawMessage, status newmodels.ArchivedJobStatus) *newmodels.ArchivedJob {
 	t.Helper()
 	_, qj := createJobAndQueuedJob(t, SampleJob, data, false)
-	aj, err := archived_jobs.Create(qj.ID, qj.Name, models.StatusSucceeded, qj.Attempts)
+	aj, err := archived_jobs.Create(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
 	test.AssertNotError(t, err, "")
 	err = queued_jobs.DeleteRetry(qj.ID, 3)
 	test.AssertNotError(t, err, "")
@@ -134,12 +134,12 @@ func CreateArchivedJob(t *testing.T, data json.RawMessage, status models.JobStat
 }
 
 // CreateAtMostOnceJob creates a queued job that can be run at most once.
-func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *models.QueuedJob) {
+func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *newmodels.QueuedJob) {
 	t.Helper()
 	return createJobAndQueuedJob(t, SampleAtMostOnceJob, data, false)
 }
 
-func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, randomId bool) (*newmodels.Job, *models.QueuedJob) {
+func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
 	test.SetUp(t)
 	job, err := jobs.Create(j)
 	if err != nil {
@@ -154,7 +154,7 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, 
 		}
 	}
 
-	expiresAt := types.NullTime{Valid: false}
+	expiresAt := sql.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 	var id types.PrefixUUID
 	if randomId {

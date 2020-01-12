@@ -6,14 +6,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kevinburke/rickover/models"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 type DummyProcessor struct {
 	Count int64
 }
 
-func (dp *DummyProcessor) DoWork(_ *models.QueuedJob) error {
+func (dp *DummyProcessor) DoWork(_ *newmodels.QueuedJob) error {
 	atomic.AddInt64(&dp.Count, 1)
 	return nil
 }
@@ -27,7 +27,7 @@ type ChannelProcessor struct {
 	Ch    chan struct{}
 }
 
-func (dp *ChannelProcessor) DoWork(qj *models.QueuedJob) error {
+func (dp *ChannelProcessor) DoWork(qj *newmodels.QueuedJob) error {
 	select {
 	case dp.Ch <- struct{}{}:
 		atomic.AddInt64(&dp.Count, 1)
