@@ -37,5 +37,5 @@ jobs:
       working-directory: ./src/github.com/kevinburke/rickover
 
     - name: Run benchmarks
-      run: envdir envs/github go test -bench=. -run='^$' -v ./...
+      run: envdir envs/github make benchmark-ci
       working-directory: ./src/github.com/kevinburke/rickover

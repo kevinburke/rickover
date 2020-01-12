@@ -73,6 +73,14 @@
   version = "2.1"
 
 [[projects]]
+  digest = "1:696d670dc1768c81e60e30fe758de6db1546f82e17391de50e0f2a53e6c1e2dd"
+  name = "github.com/kevinburke/semaphore"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "5c0f24b0593d38f84f84df633ed1c22fde3f3e91"
+  version = "1.0"
+
+[[projects]]
   digest = "1:8ef506fc2bb9ced9b151dafa592d4046063d744c646c1bbe801982ce87e4bc24"
   name = "github.com/lib/pq"
   packages = [
@@ -158,6 +166,7 @@
     "github.com/kevinburke/go-types",
     "github.com/kevinburke/go.uuid",
     "github.com/kevinburke/rest",
+    "github.com/kevinburke/semaphore",
     "github.com/lib/pq",
     "golang.org/x/sync/errgroup",
     "golang.org/x/sys/unix",

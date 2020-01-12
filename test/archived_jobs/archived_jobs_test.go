@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/kevinburke/go-dberror"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
 )
@@ -28,11 +28,11 @@ func TestAll(t *testing.T) {
 func testCreateJobReturnsJob(t *testing.T) {
 	t.Parallel()
 	qj := factory.CreateQJ(t)
-	aj, err := archived_jobs.Create(qj.ID, qj.Name, models.StatusSucceeded, qj.Attempts)
+	aj, err := archived_jobs.Create(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
-	test.AssertEquals(t, aj.Status, models.StatusSucceeded)
-	test.AssertEquals(t, aj.Attempts, uint8(qj.Attempts))
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
+	test.AssertEquals(t, aj.Attempts, int16(qj.Attempts))
 	test.AssertEquals(t, string(aj.Data), "{\"baz\": 17, \"foo\": [\"bar\", \"pik_345\"]}")
 	test.AssertEquals(t, aj.ExpiresAt.Valid, true)
 	test.AssertEquals(t, aj.ExpiresAt.Time, qj.ExpiresAt.Time)
@@ -45,7 +45,7 @@ func testCreateJobReturnsJob(t *testing.T) {
 // returns sql.ErrNoRows
 func testCreateArchivedJobWithNoQueuedReturnsErrNoRows(t *testing.T) {
 	t.Parallel()
-	_, err := archived_jobs.Create(factory.JobId, "echo", models.StatusSucceeded, 7)
+	_, err := archived_jobs.Create(factory.JobId, "echo", newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 }
 
@@ -54,9 +54,9 @@ func testCreateArchivedJobWithNoQueuedReturnsErrNoRows(t *testing.T) {
 func testArchivedJobFailsIfJobExists(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	_, err := archived_jobs.Create(qj.ID, job.Name, models.StatusSucceeded, 7)
+	_, err := archived_jobs.Create(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertNotError(t, err, "")
-	_, err = archived_jobs.Create(qj.ID, job.Name, models.StatusSucceeded, 7)
+	_, err = archived_jobs.Create(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertError(t, err, "expected error, got nil")
 	switch terr := err.(type) {
 	case *dberror.Error:
@@ -74,14 +74,14 @@ func testArchivedJobFailsIfJobExists(t *testing.T) {
 func testCreateJobStoresJob(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	aj, err := archived_jobs.Create(qj.ID, job.Name, models.StatusSucceeded, 7)
+	aj, err := archived_jobs.Create(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertNotError(t, err, "")
 	aj, err = archived_jobs.Get(aj.ID)
 	test.AssertNotError(t, err, "")
 
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
-	test.AssertEquals(t, aj.Status, models.StatusSucceeded)
-	test.AssertEquals(t, aj.Attempts, uint8(7))
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
+	test.AssertEquals(t, aj.Attempts, int16(7))
 	test.AssertEquals(t, string(aj.Data), "{}")
 
 	diff := time.Since(aj.CreatedAt)
@@ -93,6 +93,6 @@ func testCreateJobStoresJob(t *testing.T) {
 func TestCreateArchivedJobWithWrongNameReturnsErrNoRows(t *testing.T) {
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
 	defer test.TearDown(t)
-	_, err := archived_jobs.Create(qj.ID, "wrong-job-name", models.StatusSucceeded, 7)
+	_, err := archived_jobs.Create(qj.ID, "wrong-job-name", newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 }

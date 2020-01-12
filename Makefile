@@ -4,10 +4,8 @@ SHELL = /bin/bash -o pipefail
 
 ifdef DATABASE_URL
 	DATABASE_URL := $(DATABASE_URL)
-	TEST_DATABASE_URL := $(DATABASE_URL)
 else
 	DATABASE_URL := 'postgres://rickover@localhost:5432/rickover?sslmode=disable&timezone=UTC'
-	TEST_DATABASE_URL := 'postgres://rickover@localhost:5432/rickover_test?sslmode=disable&timezone=UTC'
 endif
 
 BENCHSTAT := $(GOPATH)/bin/benchstat
@@ -44,13 +42,13 @@ docs: | $(GODOCDOC)
 	$(GODOCDOC)
 
 testonly:
-	@DATABASE_URL=$(TEST_DATABASE_URL) go test -p=1 -timeout 10s ./...
+	envdir envs/test go test -p=1 -timeout 10s ./...
 
 race-testonly:
-	DATABASE_URL=$(TEST_DATABASE_URL) go test -p=1 -race -timeout 10s ./...
+	envdir envs/test go test -p=1 -race -timeout 10s ./...
 
 truncate-test: $(TRUNCATE_TABLES)
-	@DATABASE_URL=$(TEST_DATABASE_URL) $(TRUNCATE_TABLES)
+	envdir envs/test $(TRUNCATE_TABLES)
 
 race-test: race-testonly truncate-test
 
@@ -80,11 +78,19 @@ migrate: | $(GOOSE)
 migrate-ci:
 	/usr/bin/pg_ctlcluster --skip-systemctl-redirect 11-main start
 	sudo -u postgres psql -f ./bin/migrate
+	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
 	go get github.com/kevinburke/goose/cmd/goose
 	goose --env=test up
 
 $(BENCHSTAT):
 	go get -u golang.org/x/perf/cmd/benchstat
 
+benchmark-ci:
+	go run ./test/cmd/populate-queued-jobs/main.go
+	go test -bench=. -run='^$$' -v ./...
+
 bench: | $(BENCHSTAT)
 	go test -p=1 -benchtime=2s -bench=. -run='^$$' ./... 2>&1 | $(BENCHSTAT) /dev/stdin
+
+sql:
+	sqlc generate

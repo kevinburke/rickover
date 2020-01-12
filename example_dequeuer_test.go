@@ -19,7 +19,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/kevinburke/go-simple-metrics"
+	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/models/db"
@@ -42,12 +42,11 @@ func init() {
 	}
 
 	downstreamPassword = os.Getenv("DOWNSTREAM_WORKER_AUTH")
-
 	metrics.Namespace = "rickover.dequeuer"
 }
 
 func Example_dequeuer() {
-	if err := setup.DB(db.DefaultConnection, dbConns); err != nil {
+	if err := setup.DB(context.TODO(), db.DefaultConnection, dbConns); err != nil {
 		log.Fatal(err)
 	}
 

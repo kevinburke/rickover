@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinburke/go-simple-metrics"
+	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/downstream"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 // 10ms * 2^10 ~ 10 seconds between attempts
@@ -69,7 +69,7 @@ func isTimeout(err error) bool {
 
 // DoWork sends the given queued job to the downstream service, then waits for
 // it to complete.
-func (jp *JobProcessor) DoWork(qj *models.QueuedJob) error {
+func (jp *JobProcessor) DoWork(qj *newmodels.QueuedJob) error {
 	if err := jp.requestRetry(qj); err != nil {
 		if isTimeout(err) {
 			// Assume the request made it to Heroku; we see this most often
@@ -77,7 +77,7 @@ func (jp *JobProcessor) DoWork(qj *models.QueuedJob) error {
 			// requests until the new server is ready, and we see a timeout.
 			return waitForJob(qj, jp.Timeout)
 		} else {
-			return HandleStatusCallback(qj.ID, qj.Name, models.StatusFailed, qj.Attempts, true)
+			return HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		}
 	}
 	return waitForJob(qj, jp.Timeout)
@@ -93,6 +93,7 @@ func jitter(val float64) float64 {
 func (jp JobProcessor) Sleep(failedAttempts uint32) time.Duration {
 	return GetSleepDuration(jp.SleepFactor, failedAttempts)
 }
+
 // GetSleepDuration calculates sleep duration
 func GetSleepDuration(sleepFactor float64, failedAttempts uint32) time.Duration {
 	multiplier := math.Pow(sleepFactor, float64(failedAttempts))
@@ -102,11 +103,11 @@ func GetSleepDuration(sleepFactor float64, failedAttempts uint32) time.Duration 
 	return 10 * time.Duration(jitter(multiplier)) * time.Millisecond
 }
 
-func (jp *JobProcessor) requestRetry(qj *models.QueuedJob) error {
+func (jp *JobProcessor) requestRetry(qj *newmodels.QueuedJob) error {
 	log.Printf("processing job %s (type %s)", qj.ID.String(), qj.Name)
 	for i := uint8(0); i < 3; i++ {
 		if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
-			return createAndDelete(qj.ID, qj.Name, models.StatusExpired, qj.Attempts)
+			return createAndDelete(qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
 		}
 		params := &downstream.JobParams{
 			Data:     qj.Data,
@@ -145,7 +146,7 @@ func (jp *JobProcessor) requestRetry(qj *models.QueuedJob) error {
 	return nil
 }
 
-func waitForJob(qj *models.QueuedJob, failTimeout time.Duration) error {
+func waitForJob(qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 	start := time.Now()
 	// This is not going to change but we continually overwrite qj
 	name := qj.Name
@@ -162,7 +163,7 @@ func waitForJob(qj *models.QueuedJob, failTimeout time.Duration) error {
 		case <-timeoutChan:
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
 			log.Printf("5 minutes elapsed, marking %s (type %s) as failed", idStr, name)
-			err := HandleStatusCallback(qj.ID, name, models.StatusFailed, currentAttemptCount, true)
+			err := HandleStatusCallback(qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
 			log.Printf("job %s (type %s) timed out after %v", idStr, name, time.Since(start))
 			if err == sql.ErrNoRows {

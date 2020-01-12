@@ -2,6 +2,7 @@
 package setup
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,11 +10,9 @@ import (
 	"time"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
-	"github.com/kevinburke/rickover/models"
-	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/db"
-	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	models "github.com/kevinburke/rickover/newmodels"
 )
 
 var mu sync.Mutex
@@ -65,7 +64,7 @@ func MeasureQueueDepth(interval time.Duration) {
 
 func MeasureInProgressJobs(interval time.Duration) {
 	for range time.Tick(interval) {
-		m, err := queued_jobs.GetCountsByStatus(models.StatusInProgress)
+		m, err := queued_jobs.GetCountsByStatus(models.JobStatusInProgress)
 		if err == nil {
 			count := int64(0)
 			for k, v := range m {
@@ -81,11 +80,11 @@ func MeasureInProgressJobs(interval time.Duration) {
 
 // DB initializes a connection to the database, and prepares queries on all
 // models.
-func DB(connector db.Connector, dbConns int) error {
+func DB(ctx context.Context, connector db.Connector, dbConns int) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if db.Conn != nil {
-		if err := db.Conn.Ping(); err == nil {
+		if err := db.Conn.PingContext(ctx); err == nil {
 			// Already connected.
 			return nil
 		}
@@ -95,20 +94,14 @@ func DB(connector db.Connector, dbConns int) error {
 	if err != nil {
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
-	if err := db.Conn.Ping(); err != nil {
+	if err := db.Conn.PingContext(ctx); err != nil {
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
-	return PrepareAll()
+	return PrepareAll(ctx)
 }
 
-func PrepareAll() error {
-	if err := jobs.Setup(); err != nil {
-		return err
-	}
-	if err := queued_jobs.Setup(); err != nil {
-		return err
-	}
-	if err := archived_jobs.Setup(); err != nil {
+func PrepareAll(ctx context.Context) error {
+	if err := models.Setup(ctx); err != nil {
 		return err
 	}
 	if err := prepare(); err != nil {

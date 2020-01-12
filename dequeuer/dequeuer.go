@@ -10,11 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	metrics "github.com/kevinburke/go-simple-metrics"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -58,7 +57,7 @@ func CreatePools(w Worker, maxInitialJitter time.Duration) (Pools, error) {
 		g.Go(func() error {
 			p := NewPool(name)
 			var innerg errgroup.Group
-			for j := uint8(0); j < concurrency; j++ {
+			for j := int16(0); j < concurrency; j++ {
 				innerg.Go(func() error {
 					time.Sleep(time.Duration(rand.Float64()) * maxInitialJitter)
 					err := p.AddDequeuer(w)
@@ -112,7 +111,7 @@ type Worker interface {
 	// If DoWork is unable to get the work to be done, it should call
 	// HandleStatusCallback with a failed callback; errors are logged, but
 	// otherwise nothing else is done with them.
-	DoWork(*models.QueuedJob) error
+	DoWork(*newmodels.QueuedJob) error
 
 	// Sleep returns the amount of time to sleep between failed attempts to
 	// acquire a queued job. The default implementation sleeps for 20, 40, 80,
@@ -192,7 +191,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 
 		case <-time.After(waitDuration):
 			start := time.Now()
-			qj, err := queued_jobs.Acquire(name)
+			qj, err := queued_jobs.Acquire(context.TODO(), name, d.ID)
 			go metrics.Time("acquire.latency", time.Since(start))
 			if err == nil {
 				failedAcquireCount = 0
@@ -205,18 +204,8 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))
 				}
 			} else {
-				dberr, ok := err.(*dberror.Error)
-				if ok && dberr.Code == dberror.CodeLockNotAvailable {
-					// SELECT 1 returned a record but another thread
-					// got it. Don't sleep at all.
-					go metrics.Increment(fmt.Sprintf("dequeue.%s.nowait", name))
-					failedAcquireCount = 0
-					waitDuration = time.Duration(0)
-					continue
-				}
-
 				failedAcquireCount++
-				waitDuration = d.W.Sleep(failedAcquireCount)
+				waitDuration = time.Duration(0)
 			}
 		}
 	}

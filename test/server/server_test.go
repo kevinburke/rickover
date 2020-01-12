@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/server"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
@@ -31,7 +31,7 @@ func TestGoodRequestReturns200(t *testing.T) {
 	defer test.TearDown(t)
 	factory.CreateQueuedJob(t, factory.EmptyData)
 	w := httptest.NewRecorder()
-	a := uint8(3)
+	a := int16(3)
 	jsr := &server.JobStatusRequest{
 		Status:  "succeeded",
 		Attempt: &a,
@@ -65,13 +65,13 @@ func TestFailedUnretryableArchivesJob(t *testing.T) {
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 	aj, err := archived_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "finding archived job")
-	test.AssertEquals(t, aj.Status, models.StatusFailed)
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusFailed)
 	test.AssertEquals(t, aj.Attempts, qj.Attempts-1)
 }
 
 var validRequest = server.CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: models.StrategyAtLeastOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         7,
 	Concurrency:      3,
 }
@@ -87,7 +87,7 @@ func TestCreateJobReturnsJob(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusCreated)
-	job := new(models.Job)
+	job := new(newmodels.Job)
 	err = json.NewDecoder(w.Body).Decode(job)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, job.Name, validRequest.Name)
@@ -129,12 +129,12 @@ func TestRetrieveJob(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, qj.Name, "echo")
-	test.AssertEquals(t, qj.Status, models.StatusQueued)
+	test.AssertEquals(t, qj.Status, newmodels.JobStatusQueued)
 }
 
 func TestRetrieveJobNoName(t *testing.T) {
@@ -145,39 +145,39 @@ func TestRetrieveJobNoName(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, qj.Name, "echo")
-	test.AssertEquals(t, qj.Status, models.StatusQueued)
+	test.AssertEquals(t, qj.Status, newmodels.JobStatusQueued)
 }
 
 func TestRetrieveArchivedJob(t *testing.T) {
 	defer test.TearDown(t)
-	factory.CreateArchivedJob(t, factory.EmptyData, models.StatusSucceeded)
+	factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusSucceeded)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", nil)
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
-	var aj models.ArchivedJob
+	var aj newmodels.ArchivedJob
 	err := json.NewDecoder(w.Body).Decode(&aj)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, aj.Name, "echo")
-	test.AssertEquals(t, aj.Status, models.StatusSucceeded)
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
 }
 
 func TestReplayJob(t *testing.T) {
 	defer test.TearDown(t)
-	factory.CreateArchivedJob(t, factory.EmptyData, models.StatusSucceeded)
+	factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusSucceeded)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6/replay", nil)
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, 201)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertNotEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -185,13 +185,13 @@ func TestReplayJob(t *testing.T) {
 
 func TestReplayJobWithNoName(t *testing.T) {
 	defer test.TearDown(t)
-	factory.CreateArchivedJob(t, factory.EmptyData, models.StatusSucceeded)
+	factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusSucceeded)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/jobs/job_6740b44e-13b9-475d-af06-979627e0e0d6/replay", nil)
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, 201)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertNotEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -224,12 +224,12 @@ func Test202SuccessfulEnqueue(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusAccepted)
-	var j models.QueuedJob
+	var j newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&j)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, j.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
-	test.AssertEquals(t, j.Attempts, uint8(7))
-	test.AssertEquals(t, j.Status, models.StatusQueued)
+	test.AssertEquals(t, j.Attempts, int16(7))
+	test.AssertEquals(t, j.Status, newmodels.JobStatusQueued)
 	test.AssertEquals(t, j.Name, "echo")
 
 	diff := j.ExpiresAt.Time.Sub(expiry)
@@ -280,7 +280,7 @@ func Test202DuplicateEnqueue(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w2, req)
 	test.AssertEquals(t, w2.Code, http.StatusAccepted)
-	var j models.QueuedJob
+	var j newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&j)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, j.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -296,9 +296,9 @@ func Test404JobNotFound(t *testing.T) {
 	test.AssertEquals(t, w.Code, http.StatusNotFound)
 }
 
-var sampleJob = models.Job{
+var sampleJob = newmodels.CreateJobParams{
 	Attempts:         1,
-	DeliveryStrategy: models.StrategyAtMostOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Concurrency:      1,
 	Name:             "echo",
 }
@@ -317,7 +317,7 @@ func Test200JobFound(t *testing.T) {
 
 var validAtMostOnceRequest = server.CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: models.StrategyAtMostOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Attempts:         1,
 	Concurrency:      3,
 }

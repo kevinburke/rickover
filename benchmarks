@@ -1,0 +1,78 @@
+Master:
+name                  time/op
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8      1.39ms ± 0%
+Dequeue/Dequeue4-8       801µs ± 0%
+Dequeue/Dequeue8-8       882µs ± 0%
+Dequeue/Dequeue16-8     4.27ms ± 0%
+Dequeue/Dequeue64-8     1.88ms ± 0%
+Dequeue/Dequeue128-8    1.98ms ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8                200µs ± 0%
+
+name                  speed
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8     720kB/s ± 0%
+Dequeue/Dequeue4-8    1.25MB/s ± 0%
+Dequeue/Dequeue8-8    1.13MB/s ± 0%
+Dequeue/Dequeue16-8    230kB/s ± 0%
+Dequeue/Dequeue64-8    530kB/s ± 0%
+Dequeue/Dequeue128-8   510kB/s ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8             1.38MB/s ± 0%
+
+name                  alloc/op
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8      1.91kB ± 0%
+Dequeue/Dequeue4-8      1.90kB ± 0%
+Dequeue/Dequeue8-8      1.90kB ± 0%
+Dequeue/Dequeue16-8     2.18kB ± 0%
+Dequeue/Dequeue64-8     2.19kB ± 0%
+Dequeue/Dequeue128-8    2.38kB ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8               6.93kB ± 0%
+
+name                  allocs/op
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8        45.0 ± 0%
+Dequeue/Dequeue4-8        45.0 ± 0%
+Dequeue/Dequeue8-8        45.0 ± 0%
+Dequeue/Dequeue16-8       49.0 ± 0%
+Dequeue/Dequeue64-8       50.0 ± 0%
+Dequeue/Dequeue128-8      54.0 ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8                  113 ± 0%
+
+Sqlc:
+
+name                  time/op
+Dequeue/Dequeue1-8     3.10ms ± 0%
+Dequeue/Dequeue4-8     1.44ms ± 0%
+Dequeue/Dequeue8-8     1.90ms ± 0%
+Dequeue/Dequeue16-8    3.01ms ± 0%
+Dequeue/Dequeue64-8    2.35ms ± 0%
+Dequeue/Dequeue128-8   2.55ms ± 0%
+
+name                  speed
+Dequeue/Dequeue1-8    320kB/s ± 0%
+Dequeue/Dequeue4-8    690kB/s ± 0%
+Dequeue/Dequeue8-8    530kB/s ± 0%
+Dequeue/Dequeue16-8   330kB/s ± 0%
+Dequeue/Dequeue64-8   430kB/s ± 0%
+Dequeue/Dequeue128-8  390kB/s ± 0%
+
+name                  alloc/op
+Dequeue/Dequeue1-8     5.26kB ± 0%
+Dequeue/Dequeue4-8     11.5kB ± 0%
+Dequeue/Dequeue8-8     19.9kB ± 0%
+Dequeue/Dequeue16-8    27.0kB ± 0%
+Dequeue/Dequeue64-8    22.9kB ± 0%
+Dequeue/Dequeue128-8   24.6kB ± 0%
+
+name                  allocs/op
+Dequeue/Dequeue1-8        108 ± 0%
+Dequeue/Dequeue4-8        234 ± 0%
+Dequeue/Dequeue8-8        405 ± 0%
+Dequeue/Dequeue16-8       539 ± 0%
+Dequeue/Dequeue64-8       458 ± 0%
+Dequeue/Dequeue128-8      492 ± 0%

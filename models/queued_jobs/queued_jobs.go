@@ -2,16 +2,16 @@
 package queued_jobs
 
 import (
+	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/db"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 const Prefix = "job_"
@@ -33,160 +33,60 @@ func (e *UnknownOrArchivedError) Error() string {
 	return e.Err
 }
 
-var enqueueStmt *sql.Stmt
-var getStmt *sql.Stmt
-var deleteStmt *sql.Stmt
-var acquireStmt *sql.Stmt
-var decrementStmt *sql.Stmt
-var countReadyAndAllStmt *sql.Stmt
-var countsByStatusStmt *sql.Stmt
-var oldJobsStmt *sql.Stmt
-
 // StuckJobLimit is the maximum number of stuck jobs to fetch in one database
 // query.
 var StuckJobLimit = 100
-
-func Setup() (err error) {
-	if !db.Connected() {
-		return errors.New("queued_jobs: no DB connection was established, can't query")
-	}
-
-	if enqueueStmt != nil {
-		return
-	}
-
-	query := fmt.Sprintf(`-- queued_jobs.Enqueue
-INSERT INTO queued_jobs (%s) 
-SELECT $1, name, attempts, $3, $4, '%s', $5
-FROM jobs 
-WHERE name=$2
-AND NOT EXISTS (
-	SELECT id FROM archived_jobs WHERE id=$1
-)
-RETURNING %s`, insertFields(), models.StatusQueued, fields())
-	enqueueStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = fmt.Sprintf(`-- queued_jobs.Get
-SELECT %s
-FROM queued_jobs
-WHERE id = $1`, fields())
-	getStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = `-- queued_jobs.Delete
-	DELETE FROM queued_jobs WHERE id = $1`
-	deleteStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = fmt.Sprintf(`-- queued_jobs.Acquire
-WITH queued_job as (
-	SELECT id AS inner_id
-	FROM queued_jobs
-	WHERE status='%[1]s'
-		AND name = $1
-		AND run_after <= now()
-	ORDER BY created_at ASC
-	LIMIT 1
-	FOR UPDATE
-) UPDATE queued_jobs
-SET status='%[2]s',
-	updated_at=now()
-FROM queued_job
-WHERE queued_jobs.id = queued_job.inner_id 
-	AND status='%[1]s'
-RETURNING %[3]s`, models.StatusQueued, models.StatusInProgress, fields())
-	acquireStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = fmt.Sprintf(`-- queued_jobs.Decrement
-UPDATE queued_jobs
-SET status = '%s',
-	updated_at = now(),
-	attempts = attempts - 1,
-	run_after = $3
-WHERE id = $1
-	AND attempts=$2
-	RETURNING %s`, models.StatusQueued, fields())
-	decrementStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = `-- queued_jobs.CountReadyAndAll
-WITH all_count AS (
-	SELECT count(*) FROM queued_jobs
-), ready_count AS (
-	SELECT count(*) FROM queued_jobs WHERE run_after <= now()
-) 
-SELECT all_count.count, ready_count.count 
-FROM all_count, ready_count`
-	countReadyAndAllStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = `-- queued_jobs.GetCountsByStatus
-SELECT name, count(*) FROM queued_jobs WHERE status=$1 GROUP BY name`
-	countsByStatusStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = fmt.Sprintf(`-- queued_jobs.GetOldInProgressJobs
-SELECT %s FROM queued_jobs WHERE status='%s' AND updated_at < $1 LIMIT %d`,
-		fields(), models.StatusInProgress, StuckJobLimit)
-	oldJobsStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-	return
-}
 
 // Enqueue creates a new queued job with the given ID and fields. A
 // dberror.Error will be returned if Postgres returns a constraint failure -
 // job exists, job name unknown, &c. A sql.ErrNoRows will be returned if the
 // `name` does not exist in the jobs table. Otherwise the QueuedJob will be
 // returned.
-func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt types.NullTime, data json.RawMessage) (*models.QueuedJob, error) {
-	qj := new(models.QueuedJob)
-	err := enqueueStmt.QueryRow(id, name, runAfter, expiresAt, []byte(data)).Scan(args(qj)...)
+func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.EnqueueJob(context.TODO(), params)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e := &UnknownOrArchivedError{
-				Err: fmt.Sprintf("Job type %s does not exist or the job with that id has already been archived", name),
+				Err: fmt.Sprintf("Job type %s does not exist or the job with that id has already been archived", params.Name),
 			}
 			return nil, e
 		}
 		return nil, dberror.GetError(err)
 	}
-	return qj, err
+	qj.ID.Prefix = Prefix
+	return &qj, err
+}
+
+func EnqueueFast(params newmodels.EnqueueJobFastParams) error {
+	err := newmodels.DB.EnqueueJobFast(context.TODO(), params)
+	if err == nil {
+		return nil
+	}
+	if err == sql.ErrNoRows {
+		e := &UnknownOrArchivedError{
+			Err: fmt.Sprintf("Job type %s does not exist or the job with that id has already been archived", params.Name),
+		}
+		return e
+	}
+	return dberror.GetError(err)
 }
 
 // Get the queued job with the given id. Returns the job, or an error. If no
 // record could be found, the error will be `queued_jobs.ErrNotFound`.
-func Get(id types.PrefixUUID) (*models.QueuedJob, error) {
-	qj := new(models.QueuedJob)
-	err := getStmt.QueryRow(id).Scan(args(qj)...)
+func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.GetQueuedJob(context.Background(), id)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
-		}
 		return nil, dberror.GetError(err)
 	}
-	return qj, nil
+	qj.ID.Prefix = Prefix
+	return &qj, nil
 }
 
 // GetRetry attempts to retrieve the job attempts times before giving up.
-func GetRetry(id types.PrefixUUID, attempts uint8) (job *models.QueuedJob, err error) {
+func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, err error) {
 	for i := uint8(0); i < attempts; i++ {
 		job, err = Get(id)
 		if err == nil || err == ErrNotFound {
@@ -198,24 +98,16 @@ func GetRetry(id types.PrefixUUID, attempts uint8) (job *models.QueuedJob, err e
 }
 
 // Delete deletes the given queued job. Returns nil if the job was deleted
-// successfully. If no job exists to be deleted, sql.ErrNoRows is returned.
+// successfully. If no job exists to be deleted, ErrNotFound is returned.
 func Delete(id types.PrefixUUID) error {
-	res, err := deleteStmt.Exec(id)
+	num, err := newmodels.DB.DeleteQueuedJob(context.Background(), id)
 	if err != nil {
 		return err
 	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
+	if len(num) == 0 {
 		return ErrNotFound
-	} else if rows == 1 {
-		return nil
-	} else {
-		// This should not be possible because of database constraints
-		return fmt.Errorf("queued_jobs: multiple rows (%d) deleted for job %s, please investigate", rows, id)
 	}
+	return nil
 }
 
 // DeleteRetry attempts to Delete the item `attempts` times.
@@ -229,39 +121,118 @@ func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
 	return nil
 }
 
+var useOldMethod = false
+var useRecursiveMethod = true
+
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
 // a row, or a generic error/sql.ErrNoRows if no jobs are available.
-func Acquire(name string) (*models.QueuedJob, error) {
-
-	rows, err := acquireStmt.Query(name)
+func Acquire(ctx context.Context, name string, workerID int) (*newmodels.QueuedJob, error) {
+	if useOldMethod {
+		qj, err := newmodels.DB.OldAcquireJob(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		qj.ID.Prefix = Prefix
+		return &qj, nil
+	}
+	tx, err := db.Conn.BeginTx(ctx, nil)
 	if err != nil {
+		return nil, err
+	}
+	qs := newmodels.DB.WithTx(tx)
+	if useRecursiveMethod {
+		var i newmodels.QueuedJob
+		err = tx.QueryRowContext(ctx, `
+WITH RECURSIVE lock_candidates (n) AS (
+    -- Pick a bunch of candidate jobs from the database
+    SELECT * FROM (
+        SELECT 0, auto_id, id,
+        row_number() over (order by auto_id) as rownumber, false as locked, 0::bigint as locked_row_id
+        FROM queued_jobs
+        WHERE status='queued' 
+            AND name = $1
+            AND run_after < now()
+        ORDER BY auto_id
+        LIMIT 100
+    ) t1
+  UNION ALL (
+    -- Try to lock each one in turn. The first time we recurse, n+1 = 1, so we
+    -- try to lock the first row in the CASE WHEN statement.
+    -- Second time, n+1 = 2, we try to lock the second row in the CASE WHEN
+    -- statement.
+    WITH t2 AS (
+        SELECT lock_candidates.n+1, lock_candidates.auto_id, lock_candidates.id,
+            lock_candidates.rownumber,
+            CASE WHEN lock_candidates.n+1 = lock_candidates.rownumber
+                THEN (pg_try_advisory_xact_lock(lock_candidates.auto_id))
+                ELSE false
+            END AS locked
+        FROM queued_jobs
+        -- Join so we only check the rows that were pulled by the first query
+        INNER JOIN lock_candidates ON queued_jobs.auto_id = lock_candidates.auto_id
+        WHERE lock_candidates.n < 100
+    ), t2_and_locked_row AS (
+        -- Put the auto_id of the locked row at the end of every row, we use
+        -- this to make t3 easier
+        SELECT t2.*, COALESCE((SELECT auto_id c FROM t2 WHERE locked = true LIMIT 1), 0) locked_row_id FROM t2
+    )
+    -- Return either the single locked row OR all of the non-locked rows.
+    SELECT *
+    FROM t2_and_locked_row t3
+    WHERE (locked_row_id > 0 AND t3.auto_id = locked_row_id) OR (
+        locked_row_id = 0
+    )
+  )
+)
+UPDATE queued_jobs
+SET status = 'in-progress', updated_at = now()
+WHERE id = (SELECT id FROM lock_candidates where locked_row_id > 0 LIMIT 1)
+RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, status, data, auto_id
+`, name).Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.RunAfter,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.Data,
+			&i.AutoID,
+		)
+		if err != nil {
+			tx.Rollback()
+			err = dberror.GetError(err)
+			return nil, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, err
+		}
+		i.ID.Prefix = Prefix
+		return &i, nil
+	}
+	var qjid types.PrefixUUID
+	for i := 0; i < 5; i++ {
+		qjid, err = qs.AcquireJob(ctx, name)
+		if err != sql.ErrNoRows {
+			break
+		}
+	}
+	if err != nil {
+		tx.Rollback()
 		err = dberror.GetError(err)
 		return nil, err
 	}
-	defer rows.Close()
-	count := 0
-	scanned := false
-	var qj *models.QueuedJob
-	for rows.Next() {
-		count += 1
-		if !scanned {
-			qj = new(models.QueuedJob)
-			rows.Scan(args(qj)...)
-			scanned = true
-		}
-	}
-	if count == 0 {
-		return nil, sql.ErrNoRows
-	}
-	if count > 1 {
-		fmt.Println(time.Now().UTC())
-		panic(fmt.Sprintf("Too many rows affected by Acquire for '%s': %d", name, count))
-	}
-	if err := rows.Err(); err != nil {
+	qj, err := qs.MarkInProgress(ctx, qjid)
+	if err != nil {
 		return nil, err
 	}
-	return qj, nil
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	qj.ID.Prefix = Prefix
+	return &newmodels.QueuedJob{ID: qjid}, nil
 }
 
 // Decrement decrements the attempts counter for an existing job, and sets
@@ -271,42 +242,41 @@ func Acquire(name string) (*models.QueuedJob, error) {
 //
 // attempts: The current value of the `attempts` column, the returned attempts
 // value will be this number minus 1.
-func Decrement(id types.PrefixUUID, attempts uint8, runAfter time.Time) (*models.QueuedJob, error) {
-	qj := new(models.QueuedJob)
-	err := decrementStmt.QueryRow(id, attempts, runAfter).Scan(args(qj)...)
+func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.DecrementQueuedJob(context.Background(), newmodels.DecrementQueuedJobParams{
+		ID:       id,
+		Attempts: attempts,
+		RunAfter: runAfter,
+	})
 	if err != nil {
-		err = dberror.GetError(err)
-		return nil, err
+		return nil, dberror.GetError(err)
 	}
-	return qj, nil
+	qj.ID.Prefix = Prefix
+	return &qj, nil
 }
 
 // GetOldInProgressJobs finds queued in-progress jobs with an updated_at
 // timestamp older than olderThan. A maximum of StuckJobLimit jobs will be
 // returned.
-func GetOldInProgressJobs(olderThan time.Time) ([]*models.QueuedJob, error) {
-	rows, err := oldJobsStmt.Query(olderThan)
-	var jobs []*models.QueuedJob
+func GetOldInProgressJobs(olderThan time.Time) ([]newmodels.QueuedJob, error) {
+	jobs, err := newmodels.DB.GetOldInProgressJobs(context.Background(), olderThan)
 	if err != nil {
-		return jobs, err
+		return nil, dberror.GetError(err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		qj := new(models.QueuedJob)
-		if err := rows.Scan(args(qj)...); err != nil {
-			return jobs, err
-		}
-		jobs = append(jobs, qj)
+	for i := range jobs {
+		jobs[i].ID.Prefix = Prefix
 	}
-	err = rows.Err()
-	return jobs, err
+	return jobs, nil
 }
 
 // CountReadyAndAll returns the total number of queued and ready jobs in the
 // table.
 func CountReadyAndAll() (allCount int, readyCount int, err error) {
-	err = countReadyAndAllStmt.QueryRow().Scan(&allCount, &readyCount)
-	return
+	result, err := newmodels.DB.CountReadyAndAll(context.TODO())
+	if err != nil {
+		return 0, 0, err
+	}
+	return int(result.All), int(result.Ready), nil
 }
 
 // GetCountsByStatus returns a map with each job type as the key, followed by
@@ -314,58 +284,14 @@ func CountReadyAndAll() (allCount int, readyCount int, err error) {
 //
 // "echo": 5,
 // "remind-assigned-driver": 7,
-func GetCountsByStatus(status models.JobStatus) (map[string]int64, error) {
-	rows, err := countsByStatusStmt.Query(status)
-	m := make(map[string]int64)
+func GetCountsByStatus(status newmodels.JobStatus) (map[string]int64, error) {
+	counts, err := newmodels.DB.GetQueuedCountsByStatus(context.Background(), status)
 	if err != nil {
-		return m, err
+		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var name string
-		var count int64
-		err = rows.Scan(&name, &count)
-		if err != nil {
-			return m, err
-		}
-		m[name] = count
+	mp := make(map[string]int64, len(counts))
+	for i := range counts {
+		mp[counts[i].Name] = counts[i].Count
 	}
-	err = rows.Err()
-	return m, err
-}
-
-func insertFields() string {
-	return `id,
-	name,
-	attempts,
-	run_after,
-	expires_at,
-	status,
-	data`
-}
-
-func fields() string {
-	return fmt.Sprintf(`'%s' || id,
-	name,
-	attempts,
-	run_after,
-	expires_at,
-	status,
-	data,
-	created_at,
-	updated_at`, Prefix)
-}
-
-func args(qj *models.QueuedJob) []interface{} {
-	return []interface{}{
-		&qj.ID,
-		&qj.Name,
-		&qj.Attempts,
-		&qj.RunAfter,
-		&qj.ExpiresAt,
-		&qj.Status,
-		&qj.Data,
-		&qj.CreatedAt,
-		&qj.UpdatedAt,
-	}
+	return mp, nil
 }

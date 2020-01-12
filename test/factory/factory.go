@@ -9,12 +9,12 @@ import (
 
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/go.uuid"
+	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/downstream"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
 )
@@ -38,16 +38,16 @@ var RD = &RandomData{
 	Baz: uint8(17),
 }
 
-var SampleJob = models.Job{
+var SampleJob = newmodels.CreateJobParams{
 	Name:             "echo",
-	DeliveryStrategy: models.StrategyAtLeastOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         7,
 	Concurrency:      1,
 }
 
-var SampleAtMostOnceJob = models.Job{
+var SampleAtMostOnceJob = newmodels.CreateJobParams{
 	Name:             "at-most-once",
-	DeliveryStrategy: models.StrategyAtMostOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Attempts:         1,
 	Concurrency:      5,
 }
@@ -61,7 +61,7 @@ func RandomId(prefix string) types.PrefixUUID {
 	}
 }
 
-func CreateJob(t testing.TB, j models.Job) models.Job {
+func CreateJob(t testing.TB, j newmodels.CreateJobParams) newmodels.Job {
 	test.SetUp(t)
 	job, err := jobs.Create(j)
 	test.AssertNotError(t, err, "")
@@ -70,44 +70,44 @@ func CreateJob(t testing.TB, j models.Job) models.Job {
 
 // CreateQueuedJob creates a job and a queued job with the given JSON data, and
 // returns the created queued job.
-func CreateQueuedJob(t testing.TB, data json.RawMessage) *models.QueuedJob {
+func CreateQueuedJob(t testing.TB, data json.RawMessage) *newmodels.QueuedJob {
 	t.Helper()
 	_, qj := createJobAndQueuedJob(t, SampleJob, data, false)
 	return qj
 }
 
 // Like the above but with unique ID's and job names
-func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*models.Job, *models.QueuedJob) {
+func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, *newmodels.QueuedJob) {
 	id := types.GenerateUUID("jobname_")
-	j := models.Job{
+	j := newmodels.CreateJobParams{
 		Name:             id.String(),
-		DeliveryStrategy: models.StrategyAtLeastOnce,
+		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         7,
 		Concurrency:      1,
 	}
 	return createJobAndQueuedJob(t, j, data, true)
 }
 
-func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *models.QueuedJob {
+func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) {
 	t.Helper()
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	id := RandomId("job_")
-	qj, err := queued_jobs.Enqueue(id, name, runAfter, expiresAt, data)
+	err := queued_jobs.EnqueueFast(newmodels.EnqueueJobFastParams{
+		Name: name, RunAfter: runAfter, ExpiresAt: expiresAt, Data: data,
+	})
 	test.AssertNotError(t, err, "")
-	return qj
 }
 
 // CreateQJ creates a job with a random name, and a random UUID.
-func CreateQJ(t testing.TB) *models.QueuedJob {
+func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	t.Helper()
 	test.SetUp(t)
 	jobname := RandomId("jobtype")
-	job, err := jobs.Create(models.Job{
+	job, err := jobs.Create(newmodels.CreateJobParams{
 		Name:             jobname.String(),
 		Attempts:         11,
 		Concurrency:      3,
-		DeliveryStrategy: models.StrategyAtLeastOnce,
+		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	})
 	test.AssertNotError(t, err, "create job failed")
 	now := time.Now().UTC()
@@ -117,15 +117,17 @@ func CreateQJ(t testing.TB) *models.QueuedJob {
 	}
 	dat, err := json.Marshal(RD)
 	test.AssertNotError(t, err, "marshaling RD")
-	qj, err := queued_jobs.Enqueue(RandomId("job_"), job.Name, now, expires, dat)
+	qj, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+		ID: RandomId("job_"), Name: job.Name, RunAfter: now, ExpiresAt: expires, Data: dat,
+	})
 	test.AssertNotError(t, err, "create job failed")
 	return qj
 }
 
-func CreateArchivedJob(t *testing.T, data json.RawMessage, status models.JobStatus) *models.ArchivedJob {
+func CreateArchivedJob(t *testing.T, data json.RawMessage, status newmodels.ArchivedJobStatus) *newmodels.ArchivedJob {
 	t.Helper()
 	_, qj := createJobAndQueuedJob(t, SampleJob, data, false)
-	aj, err := archived_jobs.Create(qj.ID, qj.Name, models.StatusSucceeded, qj.Attempts)
+	aj, err := archived_jobs.Create(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
 	test.AssertNotError(t, err, "")
 	err = queued_jobs.DeleteRetry(qj.ID, 3)
 	test.AssertNotError(t, err, "")
@@ -133,14 +135,19 @@ func CreateArchivedJob(t *testing.T, data json.RawMessage, status models.JobStat
 }
 
 // CreateAtMostOnceJob creates a queued job that can be run at most once.
-func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*models.Job, *models.QueuedJob) {
+func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *newmodels.QueuedJob) {
 	t.Helper()
 	return createJobAndQueuedJob(t, SampleAtMostOnceJob, data, false)
 }
 
-func createJobAndQueuedJob(t testing.TB, j models.Job, data json.RawMessage, randomId bool) (*models.Job, *models.QueuedJob) {
+func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
 	test.SetUp(t)
-	job, err := jobs.Create(j)
+	job, err := jobs.Create(newmodels.CreateJobParams{
+		Name:             j.Name,
+		DeliveryStrategy: j.DeliveryStrategy,
+		Attempts:         j.Attempts,
+		Concurrency:      j.Concurrency,
+	})
 	if err != nil {
 		switch dberr := err.(type) {
 		case *dberror.Error:
@@ -161,7 +168,9 @@ func createJobAndQueuedJob(t testing.TB, j models.Job, data json.RawMessage, ran
 	} else {
 		id = JobId
 	}
-	qj, err := queued_jobs.Enqueue(id, j.Name, runAfter, expiresAt, data)
+	qj, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+		id, j.Name, runAfter, expiresAt, data,
+	})
 	test.AssertNotError(t, err, fmt.Sprintf("Error creating queued job %s (job name %s)", id, j.Name))
 	return job, qj
 }

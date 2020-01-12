@@ -2,16 +2,15 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 // POST /v1/jobs(/:name)/:id/replay
@@ -33,7 +32,7 @@ func replayHandler() http.Handler {
 		qj, err := queued_jobs.GetRetry(id, 3)
 		var expiresAt types.NullTime
 		if err == nil {
-			if qj.Status == models.StatusQueued {
+			if qj.Status == newmodels.JobStatusQueued {
 				apierr := &rest.Error{
 					Title:    "Cannot replay a queued job. Wait for it to start",
 					ID:       "invalid_replay_attempt",
@@ -77,13 +76,15 @@ func replayHandler() http.Handler {
 		}
 
 		newId := types.GenerateUUID("job_")
-		queuedJob, err := queued_jobs.Enqueue(newId, jobName, time.Now(), expiresAt, data)
+		queuedJob, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+			ID: newId, Name: jobName, RunAfter: time.Now(), ExpiresAt: expiresAt, Data: data,
+		})
 		if err != nil {
 			writeServerError(w, r, err)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(queuedJob)
-		metrics.Increment(fmt.Sprintf("enqueue.replay.success"))
+		metrics.Increment("enqueue.replay.success")
 	})
 }

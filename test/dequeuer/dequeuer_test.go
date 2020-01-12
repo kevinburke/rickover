@@ -10,13 +10,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/kevinburke/rickover/dequeuer"
-	"github.com/kevinburke/rickover/models"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
+	"github.com/kevinburke/semaphore"
 )
 
 func TestAll(t *testing.T) {
@@ -65,7 +67,7 @@ func testWorkerMakesCorrectRequest(t *testing.T) {
 	var ok bool
 	var workRequest struct {
 		Data     *factory.RandomData `json:"data"`
-		Attempts uint8               `json:"attempts"`
+		Attempts int16               `json:"attempts"`
 	}
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
@@ -156,7 +158,7 @@ func TestCreatePools(t *testing.T) {
 	test.Assert(t, foundPool, "Didn't create a pool for the job type")
 }
 
-func runDQBench(b *testing.B, concurrency int) {
+func runDQBench(b *testing.B, populate bool, concurrency int16) {
 	buf := new(bytes.Buffer)
 	log.SetOutput(buf)
 	defer func() {
@@ -166,24 +168,39 @@ func runDQBench(b *testing.B, concurrency int) {
 		log.SetOutput(os.Stdout)
 	}()
 	test.SetUp(b)
-	defer test.TearDown(b)
-	job := factory.CreateJob(b, models.Job{
-		Name:             factory.RandomId("").String()[:8],
-		Concurrency:      uint8(concurrency),
-		DeliveryStrategy: models.StrategyAtLeastOnce,
-		Attempts:         1,
-	})
+	// defer test.TearDown(b)
 	data, _ := json.Marshal(factory.RD)
-	// TODO: figure out how to balance created jobs vs. benchmark runtime.
-	for j := 0; j < 10000; j++ {
-		factory.CreateQueuedJobOnly(b, job.Name, data)
+	if populate {
+		if _, err := newmodels.DB.DeleteAllQueuedJobs(context.Background()); err != nil {
+			b.Fatal(err)
+		}
+		job := factory.CreateJob(b, newmodels.CreateJobParams{
+			Name:             factory.RandomId("").String()[:8],
+			Concurrency:      concurrency,
+			DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
+			Attempts:         1,
+		})
+		var wg sync.WaitGroup
+		sem := semaphore.New(16)
+		// Idea here is basically to insert enough jobs that the dequeuer always has
+		// work to do, no matter how long the benchmark takes to run.
+		for j := 0; j < 50000; j++ {
+			sem.Acquire()
+			wg.Add(1)
+			go func() {
+				defer sem.Release()
+				defer wg.Done()
+				factory.CreateQueuedJobOnly(b, job.Name, data)
+			}()
+		}
+		wg.Wait()
 	}
 	w := &ChannelProcessor{
 		Ch: make(chan struct{}, 1000),
 	}
 	b.ResetTimer()
 	b.ReportAllocs()
-	b.SetBytes(1000)
+	b.SetBytes(int64(len(data)))
 	pools, err := dequeuer.CreatePools(w, 0)
 	test.AssertNotError(b, err, "CreatePools")
 	defer func() {
@@ -198,13 +215,20 @@ func runDQBench(b *testing.B, concurrency int) {
 			<-w.Ch
 		}
 	})
+	count, err := newmodels.DB.CountReadyAndAll(context.Background())
+	if err != nil {
+		b.Fatal(err)
+	}
+	if count.All == 0 {
+		b.Fatal("benchmark removed all rows from the queued_jobs table")
+	}
 }
 
 func BenchmarkDequeue(b *testing.B) {
-	b.Run("Dequeue1", func(b1 *testing.B) { runDQBench(b1, 1) })
-	b.Run("Dequeue4", func(b4 *testing.B) { runDQBench(b4, 4) })
-	b.Run("Dequeue8", func(b8 *testing.B) { runDQBench(b8, 8) })
-	b.Run("Dequeue16", func(b16 *testing.B) { runDQBench(b16, 16) })
-	b.Run("Dequeue64", func(b64 *testing.B) { runDQBench(b64, 64) })
-	b.Run("Dequeue128", func(b128 *testing.B) { runDQBench(b128, 128) })
+	b.Run("Dequeue1", func(b1 *testing.B) { runDQBench(b1, false, 1) })
+	b.Run("Dequeue4", func(b4 *testing.B) { runDQBench(b4, false, 4) })
+	b.Run("Dequeue8", func(b8 *testing.B) { runDQBench(b8, false, 8) })
+	b.Run("Dequeue16", func(b16 *testing.B) { runDQBench(b16, false, 16) })
+	b.Run("Dequeue64", func(b64 *testing.B) { runDQBench(b64, false, 64) })
+	b.Run("Dequeue128", func(b128 *testing.B) { runDQBench(b128, false, 128) })
 }
