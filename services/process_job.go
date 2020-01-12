@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinburke/go-simple-metrics"
+	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/downstream"
 	"github.com/kevinburke/rickover/models"
@@ -93,6 +93,7 @@ func jitter(val float64) float64 {
 func (jp JobProcessor) Sleep(failedAttempts uint32) time.Duration {
 	return GetSleepDuration(jp.SleepFactor, failedAttempts)
 }
+
 // GetSleepDuration calculates sleep duration
 func GetSleepDuration(sleepFactor float64, failedAttempts uint32) time.Duration {
 	multiplier := math.Pow(sleepFactor, float64(failedAttempts))
