@@ -196,22 +196,7 @@ func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, er
 // Delete deletes the given queued job. Returns nil if the job was deleted
 // successfully. If no job exists to be deleted, sql.ErrNoRows is returned.
 func Delete(id types.PrefixUUID) error {
-	res, err := deleteStmt.Exec(id)
-	if err != nil {
-		return err
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return ErrNotFound
-	} else if rows == 1 {
-		return nil
-	} else {
-		// This should not be possible because of database constraints
-		return fmt.Errorf("queued_jobs: multiple rows (%d) deleted for job %s, please investigate", rows, id)
-	}
+	return newmodels.DB.DeleteQueuedJob(context.Background(), id)
 }
 
 // DeleteRetry attempts to Delete the item `attempts` times.
@@ -228,36 +213,14 @@ func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
 // a row, or a generic error/sql.ErrNoRows if no jobs are available.
-func Acquire(name string) (*models.QueuedJob, error) {
+func Acquire(name string) (*newmodels.QueuedJob, error) {
 
-	rows, err := acquireStmt.Query(name)
+	qj, err := newmodels.DB.AcquireJob(context.TODO(), name)
 	if err != nil {
 		err = dberror.GetError(err)
 		return nil, err
 	}
-	defer rows.Close()
-	count := 0
-	scanned := false
-	var qj *models.QueuedJob
-	for rows.Next() {
-		count += 1
-		if !scanned {
-			qj = new(models.QueuedJob)
-			rows.Scan(args(qj)...)
-			scanned = true
-		}
-	}
-	if count == 0 {
-		return nil, sql.ErrNoRows
-	}
-	if count > 1 {
-		fmt.Println(time.Now().UTC())
-		panic(fmt.Sprintf("Too many rows affected by Acquire for '%s': %d", name, count))
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return qj, nil
+	return &qj, nil
 }
 
 // Decrement decrements the attempts counter for an existing job, and sets

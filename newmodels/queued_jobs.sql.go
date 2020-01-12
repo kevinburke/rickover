@@ -78,13 +78,33 @@ func (q *Queries) DecrementQueuedJob(ctx context.Context, arg DecrementQueuedJob
 	return i, err
 }
 
-const deleteQueuedJob = `-- name: DeleteQueuedJob :exec
-DELETE FROM queued_jobs WHERE id = $1
+const deleteQueuedJob = `-- name: DeleteQueuedJob :many
+DELETE FROM queued_jobs
+WHERE id = $1
+RETURNING count(id) as rows_deleted
 `
 
-func (q *Queries) DeleteQueuedJob(ctx context.Context, id types.PrefixUUID) error {
-	_, err := q.db.ExecContext(ctx, deleteQueuedJob, id)
-	return err
+func (q *Queries) DeleteQueuedJob(ctx context.Context, id types.PrefixUUID) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, deleteQueuedJob, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var rows_deleted int64
+		if err := rows.Scan(&rows_deleted); err != nil {
+			return nil, err
+		}
+		items = append(items, rows_deleted)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const enqueueJob = `-- name: EnqueueJob :one

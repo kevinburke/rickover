@@ -12,6 +12,7 @@ import (
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/db"
+	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 )
 
@@ -64,6 +65,9 @@ func Create(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus
 		Attempts: attempt,
 	})
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, queued_jobs.ErrNotFound
+		}
 		return nil, dberror.GetError(err)
 	}
 	return &aj, nil

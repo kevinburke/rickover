@@ -19,8 +19,10 @@ SELECT *
 FROM queued_jobs
 WHERE id = $1;
 
--- name: DeleteQueuedJob :exec
-DELETE FROM queued_jobs WHERE id = $1;
+-- name: DeleteQueuedJob :many
+DELETE FROM queued_jobs
+WHERE id = $1
+RETURNING count(id) as rows_deleted;
 
 -- name: AcquireJob :one
 WITH queued_job as (

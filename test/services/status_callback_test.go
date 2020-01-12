@@ -3,9 +3,9 @@ package services
 import (
 	"testing"
 
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
@@ -14,7 +14,7 @@ import (
 func TestStatusCallbackInsertsArchivedRecordDeletesQueuedRecord(t *testing.T) {
 	defer test.TearDown(t)
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(qj.ID, "echo", models.StatusSucceeded, 7, true)
+	err := services.HandleStatusCallback(qj.ID, "echo", newmodels.ArchivedJobStatusSucceeded, 7, true)
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Get(qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
@@ -23,13 +23,13 @@ func TestStatusCallbackInsertsArchivedRecordDeletesQueuedRecord(t *testing.T) {
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
 	test.AssertEquals(t, aj.Attempts, uint8(7))
 	test.AssertEquals(t, aj.Name, "echo")
-	test.AssertEquals(t, aj.Status, models.StatusSucceeded)
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
 }
 
 func testStatusCallbackFailedInsertsArchivedRecord(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(qj.ID, job.Name, models.StatusFailed, 1, true)
+	err := services.HandleStatusCallback(qj.ID, job.Name, newmodels.ArchivedJobStatusFailed, 1, true)
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Get(qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
@@ -41,7 +41,7 @@ func testStatusCallbackFailedInsertsArchivedRecord(t *testing.T) {
 func TestStatusCallbackFailedAtMostOnceInsertsArchivedRecord(t *testing.T) {
 	defer test.TearDown(t)
 	_, qj := factory.CreateAtMostOnceJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(qj.ID, "at-most-once", models.StatusFailed, 7, true)
+	err := services.HandleStatusCallback(qj.ID, "at-most-once", newmodels.ArchivedJobStatusFailed, 7, true)
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Get(qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
@@ -53,7 +53,7 @@ func TestStatusCallbackFailedAtMostOnceInsertsArchivedRecord(t *testing.T) {
 func testStatusCallbackFailedAtLeastOnceUpdatesQueuedRecord(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(qj.ID, job.Name, models.StatusFailed, 7, true)
+	err := services.HandleStatusCallback(qj.ID, job.Name, newmodels.ArchivedJobStatusFailed, 7, true)
 	test.AssertNotError(t, err, "")
 
 	qj, err = queued_jobs.Get(qj.ID)
@@ -67,14 +67,14 @@ func testStatusCallbackFailedAtLeastOnceUpdatesQueuedRecord(t *testing.T) {
 func testStatusCallbackFailedNotRetryableArchivesRecord(t *testing.T) {
 	t.Parallel()
 	qj := factory.CreateQJ(t)
-	err := services.HandleStatusCallback(qj.ID, qj.Name, models.StatusFailed, qj.Attempts, false)
+	err := services.HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, false)
 	test.AssertNotError(t, err, "inserting archived record")
 
 	_, err = queued_jobs.Get(qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 	aj, err := archived_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "finding archived job")
-	test.AssertEquals(t, aj.Status, models.StatusFailed)
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusFailed)
 	test.AssertEquals(t, aj.Attempts, qj.Attempts-1)
 }
 
@@ -82,7 +82,7 @@ func testStatusCallbackFailedNotRetryableArchivesRecord(t *testing.T) {
 // create an archived job.
 func TestStatusCallbackFailedAtMostOnceArchivedRecordExists(t *testing.T) {
 	defer test.TearDown(t)
-	aj := factory.CreateArchivedJob(t, factory.EmptyData, models.StatusFailed)
-	err := services.HandleStatusCallback(aj.ID, aj.Name, models.StatusFailed, 1, true)
+	aj := factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusFailed)
+	err := services.HandleStatusCallback(aj.ID, aj.Name, newmodels.ArchivedJobStatusFailed, 1, true)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 }

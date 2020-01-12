@@ -32,7 +32,7 @@ func TestGoodRequestReturns200(t *testing.T) {
 	defer test.TearDown(t)
 	factory.CreateQueuedJob(t, factory.EmptyData)
 	w := httptest.NewRecorder()
-	a := uint8(3)
+	a := int16(3)
 	jsr := &server.JobStatusRequest{
 		Status:  "succeeded",
 		Attempt: &a,
@@ -66,7 +66,7 @@ func TestFailedUnretryableArchivesJob(t *testing.T) {
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 	aj, err := archived_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "finding archived job")
-	test.AssertEquals(t, aj.Status, models.StatusFailed)
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusFailed)
 	test.AssertEquals(t, aj.Attempts, qj.Attempts-1)
 }
 
@@ -135,7 +135,7 @@ func TestRetrieveJob(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, qj.Name, "echo")
-	test.AssertEquals(t, qj.Status, models.StatusQueued)
+	test.AssertEquals(t, qj.Status, newmodels.JobStatusQueued)
 }
 
 func TestRetrieveJobNoName(t *testing.T) {
@@ -151,12 +151,12 @@ func TestRetrieveJobNoName(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, qj.Name, "echo")
-	test.AssertEquals(t, qj.Status, models.StatusQueued)
+	test.AssertEquals(t, qj.Status, newmodels.JobStatusQueued)
 }
 
 func TestRetrieveArchivedJob(t *testing.T) {
 	defer test.TearDown(t)
-	factory.CreateArchivedJob(t, factory.EmptyData, models.StatusSucceeded)
+	factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusSucceeded)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", nil)
 	req.SetBasicAuth("foo", "bar")
@@ -167,12 +167,12 @@ func TestRetrieveArchivedJob(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, aj.Name, "echo")
-	test.AssertEquals(t, aj.Status, models.StatusSucceeded)
+	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
 }
 
 func TestReplayJob(t *testing.T) {
 	defer test.TearDown(t)
-	factory.CreateArchivedJob(t, factory.EmptyData, models.StatusSucceeded)
+	factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusSucceeded)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6/replay", nil)
 	req.SetBasicAuth("test", testPassword)
@@ -186,7 +186,7 @@ func TestReplayJob(t *testing.T) {
 
 func TestReplayJobWithNoName(t *testing.T) {
 	defer test.TearDown(t)
-	factory.CreateArchivedJob(t, factory.EmptyData, models.StatusSucceeded)
+	factory.CreateArchivedJob(t, factory.EmptyData, newmodels.ArchivedJobStatusSucceeded)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("POST", "/v1/jobs/job_6740b44e-13b9-475d-af06-979627e0e0d6/replay", nil)
 	req.SetBasicAuth("test", testPassword)
@@ -230,7 +230,7 @@ func Test202SuccessfulEnqueue(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, j.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
 	test.AssertEquals(t, j.Attempts, uint8(7))
-	test.AssertEquals(t, j.Status, models.StatusQueued)
+	test.AssertEquals(t, j.Status, newmodels.JobStatusQueued)
 	test.AssertEquals(t, j.Name, "echo")
 
 	diff := j.ExpiresAt.Time.Sub(expiry)
