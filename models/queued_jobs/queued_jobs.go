@@ -2,6 +2,7 @@
 package queued_jobs
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/db"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 const Prefix = "job_"
@@ -134,13 +136,6 @@ FROM all_count, ready_count`
 		return err
 	}
 
-	query = `-- queued_jobs.GetCountsByStatus
-SELECT name, count(*) FROM queued_jobs WHERE status=$1 GROUP BY name`
-	countsByStatusStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
 	query = fmt.Sprintf(`-- queued_jobs.GetOldInProgressJobs
 SELECT %s FROM queued_jobs WHERE status='%s' AND updated_at < $1 LIMIT %d`,
 		fields(), models.StatusInProgress, StuckJobLimit)
@@ -156,9 +151,14 @@ SELECT %s FROM queued_jobs WHERE status='%s' AND updated_at < $1 LIMIT %d`,
 // job exists, job name unknown, &c. A sql.ErrNoRows will be returned if the
 // `name` does not exist in the jobs table. Otherwise the QueuedJob will be
 // returned.
-func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt types.NullTime, data json.RawMessage) (*models.QueuedJob, error) {
-	qj := new(models.QueuedJob)
-	err := enqueueStmt.QueryRow(id, name, runAfter, expiresAt, []byte(data)).Scan(args(qj)...)
+func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt sql.NullTime, data json.RawMessage) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.EnqueueJob(context.TODO(), newmodels.EnqueueJobParams{
+		ID:        id,
+		Name:      name,
+		RunAfter:  runAfter,
+		ExpiresAt: expiresAt,
+		Data:      data,
+	})
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e := &UnknownOrArchivedError{
@@ -168,25 +168,21 @@ func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt typ
 		}
 		return nil, dberror.GetError(err)
 	}
-	return qj, err
+	return &qj, err
 }
 
 // Get the queued job with the given id. Returns the job, or an error. If no
 // record could be found, the error will be `queued_jobs.ErrNotFound`.
-func Get(id types.PrefixUUID) (*models.QueuedJob, error) {
-	qj := new(models.QueuedJob)
-	err := getStmt.QueryRow(id).Scan(args(qj)...)
+func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.GetQueuedJob(context.Background(), id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
-		}
 		return nil, dberror.GetError(err)
 	}
-	return qj, nil
+	return &qj, nil
 }
 
 // GetRetry attempts to retrieve the job attempts times before giving up.
-func GetRetry(id types.PrefixUUID, attempts uint8) (job *models.QueuedJob, err error) {
+func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, err error) {
 	for i := uint8(0); i < attempts; i++ {
 		job, err = Get(id)
 		if err == nil || err == ErrNotFound {
@@ -271,35 +267,27 @@ func Acquire(name string) (*models.QueuedJob, error) {
 //
 // attempts: The current value of the `attempts` column, the returned attempts
 // value will be this number minus 1.
-func Decrement(id types.PrefixUUID, attempts uint8, runAfter time.Time) (*models.QueuedJob, error) {
-	qj := new(models.QueuedJob)
-	err := decrementStmt.QueryRow(id, attempts, runAfter).Scan(args(qj)...)
+func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.DecrementQueuedJob(context.Background(), newmodels.DecrementQueuedJobParams{
+		ID:       id,
+		Attempts: attempts,
+		RunAfter: runAfter,
+	})
 	if err != nil {
-		err = dberror.GetError(err)
-		return nil, err
+		return nil, dberror.GetError(err)
 	}
-	return qj, nil
+	return &qj, nil
 }
 
 // GetOldInProgressJobs finds queued in-progress jobs with an updated_at
 // timestamp older than olderThan. A maximum of StuckJobLimit jobs will be
 // returned.
-func GetOldInProgressJobs(olderThan time.Time) ([]*models.QueuedJob, error) {
-	rows, err := oldJobsStmt.Query(olderThan)
-	var jobs []*models.QueuedJob
+func GetOldInProgressJobs(olderThan time.Time) ([]newmodels.QueuedJob, error) {
+	jobs, err := newmodels.DB.GetOldInProgressJobs(context.Background(), olderThan)
 	if err != nil {
-		return jobs, err
+		return nil, dberror.GetError(err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		qj := new(models.QueuedJob)
-		if err := rows.Scan(args(qj)...); err != nil {
-			return jobs, err
-		}
-		jobs = append(jobs, qj)
-	}
-	err = rows.Err()
-	return jobs, err
+	return jobs, nil
 }
 
 // CountReadyAndAll returns the total number of queued and ready jobs in the
@@ -314,24 +302,13 @@ func CountReadyAndAll() (allCount int, readyCount int, err error) {
 //
 // "echo": 5,
 // "remind-assigned-driver": 7,
-func GetCountsByStatus(status models.JobStatus) (map[string]int64, error) {
-	rows, err := countsByStatusStmt.Query(status)
-	m := make(map[string]int64)
+func GetCountsByStatus(status newmodels.JobStatus) (map[string]int64, error) {
+	counts, err := newmodels.DB.GetQueuedCountsByStatus(context.Background(), status)
 	if err != nil {
-		return m, err
+		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var name string
-		var count int64
-		err = rows.Scan(&name, &count)
-		if err != nil {
-			return m, err
-		}
-		m[name] = count
-	}
-	err = rows.Err()
-	return m, err
+	fmt.Println("counts", counts)
+	return nil, nil
 }
 
 func insertFields() string {

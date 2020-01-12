@@ -2,8 +2,8 @@
 package archived_jobs
 
 import (
+	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,7 +12,7 @@ import (
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/db"
-	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 const Prefix = "job_"
@@ -56,40 +56,31 @@ WHERE id = $1`, fields())
 // Create an archived job with the given id, status, and attempts. Assumes that
 // the job already exists in the queued_jobs table; the `data` field is copied
 // from there. If the job does not exist, queued_jobs.ErrNotFound is returned.
-func Create(id types.PrefixUUID, name string, status models.JobStatus, attempt uint8) (*models.ArchivedJob, error) {
-	aj := new(models.ArchivedJob)
-	var bt []byte
-	err := createStmt.QueryRow(id, name, status, attempt).Scan(args(aj, &bt)...)
+func Create(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16) (*newmodels.ArchivedJob, error) {
+	aj, err := newmodels.DB.CreateArchivedJob(context.Background(), newmodels.CreateArchivedJobParams{
+		ID:       id,
+		Name:     name,
+		Status:   status,
+		Attempts: attempt,
+	})
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, queued_jobs.ErrNotFound
-		}
-		err = dberror.GetError(err)
-		return nil, err
+		return nil, dberror.GetError(err)
 	}
-	aj.Data = json.RawMessage(bt)
-	return aj, nil
+	return &aj, nil
 }
 
 // Get returns the archived job with the given id, or sql.ErrNoRows if it's
 // not present.
-func Get(id types.PrefixUUID) (*models.ArchivedJob, error) {
-	aj := new(models.ArchivedJob)
-	var bt []byte
-	err := getStmt.QueryRow(id).Scan(args(aj, &bt)...)
+func Get(id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
+	aj, err := newmodels.DB.GetArchivedJob(context.Background(), id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
-		}
-		err = dberror.GetError(err)
-		return nil, err
+		return nil, dberror.GetError(err)
 	}
-	aj.Data = json.RawMessage(bt)
-	return aj, nil
+	return &aj, nil
 }
 
 // GetRetry attempts to retrieve the job attempts times before giving up.
-func GetRetry(id types.PrefixUUID, attempts uint8) (job *models.ArchivedJob, err error) {
+func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.ArchivedJob, err error) {
 	for i := uint8(0); i < attempts; i++ {
 		job, err = Get(id)
 		if err == nil || err == ErrNotFound {

@@ -15,7 +15,7 @@ type JobService struct {
 
 type JobParams struct {
 	Data     json.RawMessage `json:"data"`
-	Attempts uint8           `json:"attempts"`
+	Attempts int16           `json:"attempts"`
 }
 
 // Post makes a request to /v1/jobs/:job-name/:job-id with the job data.

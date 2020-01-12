@@ -14,6 +14,7 @@ import (
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/server"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
@@ -71,7 +72,7 @@ func TestFailedUnretryableArchivesJob(t *testing.T) {
 
 var validRequest = server.CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: models.StrategyAtLeastOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         7,
 	Concurrency:      3,
 }
@@ -87,7 +88,7 @@ func TestCreateJobReturnsJob(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusCreated)
-	job := new(models.Job)
+	job := new(newmodels.Job)
 	err = json.NewDecoder(w.Body).Decode(job)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, job.Name, validRequest.Name)
@@ -296,9 +297,9 @@ func Test404JobNotFound(t *testing.T) {
 	test.AssertEquals(t, w.Code, http.StatusNotFound)
 }
 
-var sampleJob = models.Job{
+var sampleJob = newmodels.Job{
 	Attempts:         1,
-	DeliveryStrategy: models.StrategyAtMostOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Concurrency:      1,
 	Name:             "echo",
 }
@@ -317,7 +318,7 @@ func Test200JobFound(t *testing.T) {
 
 var validAtMostOnceRequest = server.CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: models.StrategyAtMostOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Attempts:         1,
 	Concurrency:      3,
 }

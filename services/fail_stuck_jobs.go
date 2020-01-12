@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 // ArchiveStuckJobs marks as failed any queued jobs with an updated_at
@@ -22,7 +22,7 @@ func ArchiveStuckJobs(olderThan time.Duration) error {
 		return err
 	}
 	for _, qj := range jobs {
-		err = HandleStatusCallback(qj.ID, qj.Name, models.StatusFailed, qj.Attempts, true)
+		err = HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		if err == nil {
 			log.Printf("Found stuck job %s and marked it as failed", qj.ID.String())
 		} else {
