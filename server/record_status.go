@@ -7,8 +7,8 @@ import (
 
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 )
 
@@ -19,10 +19,10 @@ type jobStatusUpdater struct{}
 // status of a job.
 type JobStatusRequest struct {
 	// Should be "succeeded" or "failed".
-	Status models.JobStatus `json:"status"`
+	Status newmodels.ArchivedJobStatus `json:"status"`
 
 	// Attempt is sent to ensure we don't attempt a null write.
-	Attempt *uint8 `json:"attempt"` // pointer to distinguish between null/omitted value and 0.
+	Attempt *int16 `json:"attempt"` // pointer to distinguish between null/omitted value and 0.
 
 	// Retryable indicates whether a failure is retryable. The default is true.
 	// Set to false to avoid retrying a particular failure.
@@ -55,7 +55,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, r, createEmptyErr("attempt", r.URL.Path))
 		return
 	}
-	if jsr.Status != models.StatusSucceeded && jsr.Status != models.StatusFailed {
+	if jsr.Status != newmodels.ArchivedJobStatusSucceeded && jsr.Status != newmodels.ArchivedJobStatusFailed {
 		badRequest(w, r, &rest.Error{
 			ID:       "invalid_status",
 			Title:    fmt.Sprintf("Invalid job status: %s", jsr.Status),

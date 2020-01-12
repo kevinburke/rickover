@@ -9,12 +9,13 @@ import (
 
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/go.uuid"
+	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/downstream"
 	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
 )
@@ -38,16 +39,16 @@ var RD = &RandomData{
 	Baz: uint8(17),
 }
 
-var SampleJob = models.Job{
+var SampleJob = newmodels.Job{
 	Name:             "echo",
-	DeliveryStrategy: models.StrategyAtLeastOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         7,
 	Concurrency:      1,
 }
 
-var SampleAtMostOnceJob = models.Job{
+var SampleAtMostOnceJob = newmodels.Job{
 	Name:             "at-most-once",
-	DeliveryStrategy: models.StrategyAtMostOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Attempts:         1,
 	Concurrency:      5,
 }
@@ -61,7 +62,7 @@ func RandomId(prefix string) types.PrefixUUID {
 	}
 }
 
-func CreateJob(t testing.TB, j models.Job) models.Job {
+func CreateJob(t testing.TB, j newmodels.Job) newmodels.Job {
 	test.SetUp(t)
 	job, err := jobs.Create(j)
 	test.AssertNotError(t, err, "")
@@ -77,11 +78,11 @@ func CreateQueuedJob(t testing.TB, data json.RawMessage) *models.QueuedJob {
 }
 
 // Like the above but with unique ID's and job names
-func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*models.Job, *models.QueuedJob) {
+func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, *models.QueuedJob) {
 	id := types.GenerateUUID("jobname_")
-	j := models.Job{
+	j := newmodels.Job{
 		Name:             id.String(),
-		DeliveryStrategy: models.StrategyAtLeastOnce,
+		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         7,
 		Concurrency:      1,
 	}
@@ -103,11 +104,11 @@ func CreateQJ(t testing.TB) *models.QueuedJob {
 	t.Helper()
 	test.SetUp(t)
 	jobname := RandomId("jobtype")
-	job, err := jobs.Create(models.Job{
+	job, err := jobs.Create(newmodels.Job{
 		Name:             jobname.String(),
 		Attempts:         11,
 		Concurrency:      3,
-		DeliveryStrategy: models.StrategyAtLeastOnce,
+		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	})
 	test.AssertNotError(t, err, "create job failed")
 	now := time.Now().UTC()
@@ -133,12 +134,12 @@ func CreateArchivedJob(t *testing.T, data json.RawMessage, status models.JobStat
 }
 
 // CreateAtMostOnceJob creates a queued job that can be run at most once.
-func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*models.Job, *models.QueuedJob) {
+func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *models.QueuedJob) {
 	t.Helper()
 	return createJobAndQueuedJob(t, SampleAtMostOnceJob, data, false)
 }
 
-func createJobAndQueuedJob(t testing.TB, j models.Job, data json.RawMessage, randomId bool) (*models.Job, *models.QueuedJob) {
+func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, randomId bool) (*newmodels.Job, *models.QueuedJob) {
 	test.SetUp(t)
 	job, err := jobs.Create(j)
 	if err != nil {

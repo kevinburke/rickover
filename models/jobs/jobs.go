@@ -2,6 +2,7 @@
 package jobs
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	dberror "github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/db"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/lib/pq"
 )
 
@@ -57,20 +59,26 @@ FROM jobs`, fields(true)))
 	return
 }
 
-func Create(job models.Job) (*models.Job, error) {
-	dbJob := new(models.Job)
-	err := insertJobStmt.QueryRow(job.Name, job.DeliveryStrategy, job.Attempts, job.Concurrency).Scan(args(dbJob)...)
+func Create(job newmodels.Job) (*newmodels.Job, error) {
+	job, err := newmodels.DB.CreateJob(context.Background(), newmodels.CreateJobParams{
+		Name:             job.Name,
+		DeliveryStrategy: job.DeliveryStrategy,
+		Attempts:         job.Attempts,
+		Concurrency:      job.Concurrency,
+	})
 	if err != nil {
 		err = dberror.GetError(err)
 	}
-	return dbJob, err
+	return &job, err
 }
 
 // Get a job by its name.
-func Get(name string) (*models.Job, error) {
-	job := new(models.Job)
-	err := getJobStmt.QueryRow(name).Scan(args(job)...)
-	return job, err
+func Get(name string) (*newmodels.Job, error) {
+	job, err := newmodels.DB.GetJob(context.Background(), name)
+	if err != nil {
+		return nil, dberror.GetError(err)
+	}
+	return &job, nil
 }
 
 func GetAll() ([]*models.Job, error) {
@@ -92,7 +100,7 @@ func GetAll() ([]*models.Job, error) {
 }
 
 // GetRetry attempts to get the job `attempts` times before giving up.
-func GetRetry(name string, attempts uint8) (job *models.Job, err error) {
+func GetRetry(name string, attempts uint8) (job *newmodels.Job, err error) {
 	for i := uint8(0); i < attempts; i++ {
 		job, err = Get(name)
 		if err == nil || err == sql.ErrNoRows {

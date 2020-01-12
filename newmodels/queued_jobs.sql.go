@@ -44,6 +44,40 @@ func (q *Queries) AcquireJob(ctx context.Context, name string) (QueuedJob, error
 	return i, err
 }
 
+const decrementQueuedJob = `-- name: DecrementQueuedJob :one
+UPDATE queued_jobs
+SET status = 'queued',
+	updated_at = now(),
+	attempts = attempts - 1,
+	run_after = $3
+WHERE id = $1
+	AND attempts=$2
+	RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, status, data
+`
+
+type DecrementQueuedJobParams struct {
+	ID       types.PrefixUUID `json:"id"`
+	Attempts int16            `json:"attempts"`
+	RunAfter time.Time        `json:"run_after"`
+}
+
+func (q *Queries) DecrementQueuedJob(ctx context.Context, arg DecrementQueuedJobParams) (QueuedJob, error) {
+	row := q.db.QueryRowContext(ctx, decrementQueuedJob, arg.ID, arg.Attempts, arg.RunAfter)
+	var i QueuedJob
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Attempts,
+		&i.RunAfter,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Status,
+		&i.Data,
+	)
+	return i, err
+}
+
 const deleteQueuedJob = `-- name: DeleteQueuedJob :exec
 DELETE FROM queued_jobs WHERE id = $1
 `
@@ -99,6 +133,82 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (QueuedJ
 		&i.Data,
 	)
 	return i, err
+}
+
+const getOldInProgressJobs = `-- name: GetOldInProgressJobs :many
+SELECT id, name, attempts, run_after, expires_at, created_at, updated_at, status, data
+FROM queued_jobs
+WHERE status = 'in-progress'
+AND updated_at < $1
+LIMIT 100
+`
+
+func (q *Queries) GetOldInProgressJobs(ctx context.Context, updatedAt time.Time) ([]QueuedJob, error) {
+	rows, err := q.db.QueryContext(ctx, getOldInProgressJobs, updatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QueuedJob
+	for rows.Next() {
+		var i QueuedJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.RunAfter,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.Data,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getQueuedCountsByStatus = `-- name: GetQueuedCountsByStatus :many
+SELECT name, count(*)
+FROM queued_jobs
+WHERE status = $1
+GROUP BY name
+`
+
+type GetQueuedCountsByStatusRow struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+func (q *Queries) GetQueuedCountsByStatus(ctx context.Context, status JobStatus) ([]GetQueuedCountsByStatusRow, error) {
+	rows, err := q.db.QueryContext(ctx, getQueuedCountsByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetQueuedCountsByStatusRow
+	for rows.Next() {
+		var i GetQueuedCountsByStatusRow
+		if err := rows.Scan(&i.Name, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getQueuedJob = `-- name: GetQueuedJob :one

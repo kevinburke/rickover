@@ -9,11 +9,9 @@ import (
 	"time"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
-	"github.com/kevinburke/rickover/models"
-	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/db"
-	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	models "github.com/kevinburke/rickover/newmodels"
 )
 
 var mu sync.Mutex
@@ -65,7 +63,7 @@ func MeasureQueueDepth(interval time.Duration) {
 
 func MeasureInProgressJobs(interval time.Duration) {
 	for range time.Tick(interval) {
-		m, err := queued_jobs.GetCountsByStatus(models.StatusInProgress)
+		m, err := queued_jobs.GetCountsByStatus(models.JobStatusInProgress)
 		if err == nil {
 			count := int64(0)
 			for k, v := range m {
@@ -102,13 +100,7 @@ func DB(connector db.Connector, dbConns int) error {
 }
 
 func PrepareAll() error {
-	if err := jobs.Setup(); err != nil {
-		return err
-	}
-	if err := queued_jobs.Setup(); err != nil {
-		return err
-	}
-	if err := archived_jobs.Setup(); err != nil {
+	if err := models.Setup(); err != nil {
 		return err
 	}
 	if err := prepare(); err != nil {

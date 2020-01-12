@@ -4,10 +4,8 @@ SHELL = /bin/bash -o pipefail
 
 ifdef DATABASE_URL
 	DATABASE_URL := $(DATABASE_URL)
-	TEST_DATABASE_URL := $(DATABASE_URL)
 else
 	DATABASE_URL := 'postgres://rickover@localhost:5432/rickover?sslmode=disable&timezone=UTC'
-	TEST_DATABASE_URL := 'postgres://rickover@localhost:5432/rickover_test?sslmode=disable&timezone=UTC'
 endif
 
 BENCHSTAT := $(GOPATH)/bin/benchstat
@@ -44,13 +42,13 @@ docs: | $(GODOCDOC)
 	$(GODOCDOC)
 
 testonly:
-	@DATABASE_URL=$(TEST_DATABASE_URL) go test -p=1 -timeout 10s ./...
+	envdir envs/test go test -p=1 -timeout 10s ./...
 
 race-testonly:
-	DATABASE_URL=$(TEST_DATABASE_URL) go test -p=1 -race -timeout 10s ./...
+	envdir envs/test go test -p=1 -race -timeout 10s ./...
 
 truncate-test: $(TRUNCATE_TABLES)
-	@DATABASE_URL=$(TEST_DATABASE_URL) $(TRUNCATE_TABLES)
+	DATABASE_URL=$(TEST_DATABASE_URL) $(TRUNCATE_TABLES)
 
 race-test: race-testonly truncate-test
 

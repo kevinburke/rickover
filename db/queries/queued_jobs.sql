@@ -35,3 +35,26 @@ WITH queued_job as (
 SELECT *
 FROM queued_jobs
 WHERE pg_try_advisory_lock(queued_job.id);
+
+-- name: GetQueuedCountsByStatus :many
+SELECT name, count(*)
+FROM queued_jobs
+WHERE status = $1
+GROUP BY name;
+
+-- name: GetOldInProgressJobs :many
+SELECT *
+FROM queued_jobs
+WHERE status = 'in-progress'
+AND updated_at < $1
+LIMIT 100;
+
+-- name: DecrementQueuedJob :one
+UPDATE queued_jobs
+SET status = 'queued',
+	updated_at = now(),
+	attempts = attempts - 1,
+	run_after = $3
+WHERE id = $1
+	AND attempts=$2
+	RETURNING *;

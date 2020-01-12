@@ -21,10 +21,10 @@ import (
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/config"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 )
 
 // TODO(burke) use http.LimitedBytesReader.
@@ -179,10 +179,10 @@ func debugRequestBodyHandler(h http.Handler) http.Handler {
 // CreateJobRequest is a struct of data sent in the body of a request to
 // /v1/jobs
 type CreateJobRequest struct {
-	Name             string                  `json:"name"`
-	Attempts         uint8                   `json:"attempts"`
-	Concurrency      uint8                   `json:"concurrency"`
-	DeliveryStrategy models.DeliveryStrategy `json:"delivery_strategy"`
+	Name             string                     `json:"name"`
+	Attempts         int16                      `json:"attempts"`
+	Concurrency      int16                      `json:"concurrency"`
+	DeliveryStrategy newmodels.DeliveryStrategy `json:"delivery_strategy"`
 }
 
 // GET /v1/jobs/:jobName
@@ -230,11 +230,11 @@ func createJob() http.Handler {
 			badRequest(w, r, createEmptyErr("name", r.URL.Path))
 			return
 		}
-		if jr.DeliveryStrategy == models.DeliveryStrategy("") {
+		if jr.DeliveryStrategy == newmodels.DeliveryStrategy("") {
 			badRequest(w, r, createEmptyErr("delivery_strategy", r.URL.Path))
 			return
 		}
-		if jr.DeliveryStrategy != models.StrategyAtLeastOnce && jr.DeliveryStrategy != models.StrategyAtMostOnce {
+		if jr.DeliveryStrategy != newmodels.DeliveryStrategyAtLeastOnce && jr.DeliveryStrategy != newmodels.DeliveryStrategyAtMostOnce {
 			err := &rest.Error{
 				Instance: r.URL.Path,
 				ID:       "invalid_delivery_strategy",
@@ -244,7 +244,7 @@ func createJob() http.Handler {
 			return
 		}
 
-		if jr.DeliveryStrategy == models.StrategyAtMostOnce && jr.Attempts > 1 {
+		if jr.DeliveryStrategy == newmodels.DeliveryStrategyAtMostOnce && jr.Attempts > 1 {
 			err := &rest.Error{
 				Instance: r.URL.Path,
 				ID:       "invalid_attempts",
@@ -264,7 +264,7 @@ func createJob() http.Handler {
 			return
 		}
 
-		jobData := models.Job{
+		jobData := newmodels.Job{
 			Name:             jr.Name,
 			DeliveryStrategy: jr.DeliveryStrategy,
 			Concurrency:      jr.Concurrency,
@@ -452,7 +452,10 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := jobIdRoute.FindStringSubmatch(r.URL.Path)[1]
-	queuedJob, err := queued_jobs.Enqueue(id, name, ejr.RunAfter.Time, ejr.ExpiresAt, ejr.Data)
+	queuedJob, err := queued_jobs.Enqueue(id, name, ejr.RunAfter.Time, sql.NullTime{
+		Valid: ejr.ExpiresAt.Valid,
+		Time:  ejr.ExpiresAt.Time,
+	}, ejr.Data)
 	if err != nil {
 		switch terr := err.(type) {
 		case *queued_jobs.UnknownOrArchivedError:

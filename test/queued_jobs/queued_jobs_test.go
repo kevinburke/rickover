@@ -13,6 +13,7 @@ import (
 	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
+	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
@@ -20,9 +21,9 @@ import (
 
 var empty = json.RawMessage([]byte("{}"))
 
-var sampleJob = models.Job{
+var sampleJob = newmodels.Job{
 	Name:             "echo",
-	DeliveryStrategy: models.StrategyAtLeastOnce,
+	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         3,
 	Concurrency:      1,
 }
@@ -64,9 +65,9 @@ func TestEnqueue(t *testing.T) {
 func testEnqueueNoData(t *testing.T) {
 	t.Parallel()
 	id := types.GenerateUUID("jobname_")
-	j := models.Job{
+	j := newmodels.Job{
 		Name:             id.String(),
-		DeliveryStrategy: models.StrategyAtLeastOnce,
+		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         7,
 		Concurrency:      1,
 	}
@@ -319,7 +320,7 @@ func TestCountByStatus(t *testing.T) {
 	factory.CreateQueuedJobOnly(t, job.Name, factory.EmptyData)
 	factory.CreateQueuedJobOnly(t, job.Name, factory.EmptyData)
 	factory.CreateAtMostOnceJob(t, factory.EmptyData)
-	m, err := queued_jobs.GetCountsByStatus(models.StatusQueued)
+	m, err := queued_jobs.GetCountsByStatus(newmodels.JobStatusQueued)
 	test.AssertNotError(t, err, "")
 	test.Assert(t, len(m) >= 2, "expected at least 2 queued jobs in the database")
 	test.AssertEquals(t, m[job.Name], int64(3))
