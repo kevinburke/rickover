@@ -146,7 +146,7 @@ type EnqueueJobParams struct {
 	Data      json.RawMessage  `json:"data"`
 }
 
-func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (QueuedJob, error) {
+func (q *Queries) EnqueueJob(ctx context.Context, arg *EnqueueJobParams) (QueuedJob, error) {
 	row := q.db.QueryRowContext(ctx, enqueueJob,
 		arg.ID,
 		arg.Name,

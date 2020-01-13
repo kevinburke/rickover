@@ -4,7 +4,6 @@ package queued_jobs
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -43,18 +42,12 @@ var StuckJobLimit = 100
 // job exists, job name unknown, &c. A sql.ErrNoRows will be returned if the
 // `name` does not exist in the jobs table. Otherwise the QueuedJob will be
 // returned.
-func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt types.NullTime, data json.RawMessage) (*newmodels.QueuedJob, error) {
-	qj, err := newmodels.DB.EnqueueJob(context.TODO(), newmodels.EnqueueJobParams{
-		ID:        id,
-		Name:      name,
-		RunAfter:  runAfter,
-		ExpiresAt: expiresAt,
-		Data:      data,
-	})
+func Enqueue(params *newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.EnqueueJob(context.TODO(), params)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e := &UnknownOrArchivedError{
-				Err: fmt.Sprintf("Job type %s does not exist or the job with that id has already been archived", name),
+				Err: fmt.Sprintf("Job type %s does not exist or the job with that id has already been archived", params.Name),
 			}
 			return nil, e
 		}

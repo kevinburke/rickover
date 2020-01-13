@@ -271,7 +271,12 @@ func createJob() http.Handler {
 			Attempts:         jr.Attempts,
 		}
 		start := time.Now()
-		job, err := jobs.Create(jobData)
+		job, err := jobs.Create(&newmodels.CreateJobParams{
+			Name:             jobData.Name,
+			DeliveryStrategy: jobData.DeliveryStrategy,
+			Concurrency:      jobData.Concurrency,
+			Attempts:         jobData.Attempts,
+		})
 		go metrics.Time("type.create.latency", time.Since(start))
 		if err != nil {
 			switch terr := err.(type) {
@@ -452,7 +457,10 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := jobIdRoute.FindStringSubmatch(r.URL.Path)[1]
-	queuedJob, err := queued_jobs.Enqueue(id, name, ejr.RunAfter.Time, ejr.ExpiresAt, ejr.Data)
+	queuedJob, err := queued_jobs.Enqueue(&newmodels.EnqueueJobParams{
+		ID: id, Name: name, RunAfter: ejr.RunAfter.Time,
+		ExpiresAt: ejr.ExpiresAt, Data: ejr.Data,
+	})
 	if err != nil {
 		switch terr := err.(type) {
 		case *queued_jobs.UnknownOrArchivedError:

@@ -63,7 +63,12 @@ func RandomId(prefix string) types.PrefixUUID {
 
 func CreateJob(t testing.TB, j newmodels.Job) newmodels.Job {
 	test.SetUp(t)
-	job, err := jobs.Create(j)
+	job, err := jobs.Create(&newmodels.CreateJobParams{
+		Name:             j.Name,
+		DeliveryStrategy: j.DeliveryStrategy,
+		Attempts:         j.Attempts,
+		Concurrency:      j.Concurrency,
+	})
 	test.AssertNotError(t, err, "")
 	return *job
 }
@@ -93,7 +98,9 @@ func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *newmo
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 	id := RandomId("job_")
-	qj, err := queued_jobs.Enqueue(id, name, runAfter, expiresAt, data)
+	qj, err := queued_jobs.Enqueue(&newmodels.EnqueueJobParams{
+		ID: id, Name: name, RunAfter: runAfter, ExpiresAt: expiresAt, Data: data,
+	})
 	test.AssertNotError(t, err, "")
 	return qj
 }
@@ -103,7 +110,7 @@ func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	t.Helper()
 	test.SetUp(t)
 	jobname := RandomId("jobtype")
-	job, err := jobs.Create(newmodels.Job{
+	job, err := jobs.Create(&newmodels.CreateJobParams{
 		Name:             jobname.String(),
 		Attempts:         11,
 		Concurrency:      3,
@@ -117,7 +124,9 @@ func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	}
 	dat, err := json.Marshal(RD)
 	test.AssertNotError(t, err, "marshaling RD")
-	qj, err := queued_jobs.Enqueue(RandomId("job_"), job.Name, now, expires, dat)
+	qj, err := queued_jobs.Enqueue(&newmodels.EnqueueJobParams{
+		ID: RandomId("job_"), Name: job.Name, RunAfter: now, ExpiresAt: expires, Data: dat,
+	})
 	test.AssertNotError(t, err, "create job failed")
 	return qj
 }
@@ -140,7 +149,12 @@ func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *n
 
 func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
 	test.SetUp(t)
-	job, err := jobs.Create(j)
+	job, err := jobs.Create(&newmodels.CreateJobParams{
+		Name:             j.Name,
+		DeliveryStrategy: j.DeliveryStrategy,
+		Attempts:         j.Attempts,
+		Concurrency:      j.Concurrency,
+	})
 	if err != nil {
 		switch dberr := err.(type) {
 		case *dberror.Error:
@@ -161,7 +175,9 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, 
 	} else {
 		id = JobId
 	}
-	qj, err := queued_jobs.Enqueue(id, j.Name, runAfter, expiresAt, data)
+	qj, err := queued_jobs.Enqueue(&newmodels.EnqueueJobParams{
+		id, j.Name, runAfter, expiresAt, data,
+	})
 	test.AssertNotError(t, err, fmt.Sprintf("Error creating queued job %s (job name %s)", id, j.Name))
 	return job, qj
 }

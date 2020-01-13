@@ -24,7 +24,7 @@ type CreateJobParams struct {
 	Concurrency      int16            `json:"concurrency"`
 }
 
-func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, error) {
+func (q *Queries) CreateJob(ctx context.Context, arg *CreateJobParams) (Job, error) {
 	row := q.db.QueryRowContext(ctx, createJob,
 		arg.Name,
 		arg.DeliveryStrategy,
