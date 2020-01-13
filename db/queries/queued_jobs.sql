@@ -41,6 +41,25 @@ INNER JOIN queued_job_id ON queued_jobs.id = queued_job_id.inner_id
 WHERE id = queued_job_id.inner_id
 AND pg_try_advisory_lock(queued_job_id.hash_key);
 
+-- name: OldAcquireJob :one
+WITH queued_job as (
+	SELECT id AS inner_id
+	FROM queued_jobs
+	WHERE status='queued'
+		AND queued_jobs.name = $1
+		AND run_after <= now()
+	ORDER BY created_at ASC
+	LIMIT 1
+	FOR UPDATE
+)
+UPDATE queued_jobs
+SET status='in-progress',
+	updated_at=now()
+FROM queued_job
+WHERE queued_jobs.id = queued_job.inner_id
+	AND status='queued'
+RETURNING queued_jobs.*;
+
 -- name: MarkInProgress :one
 UPDATE queued_jobs
 SET status = 'in-progress',

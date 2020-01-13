@@ -308,3 +308,41 @@ func (q *Queries) MarkInProgress(ctx context.Context, id types.PrefixUUID) (Queu
 	)
 	return i, err
 }
+
+const oldAcquireJob = `-- name: OldAcquireJob :one
+WITH queued_job as (
+	SELECT id AS inner_id
+	FROM queued_jobs
+	WHERE status='queued'
+		AND queued_jobs.name = $1
+		AND run_after <= now()
+	ORDER BY created_at ASC
+	LIMIT 1
+	FOR UPDATE
+)
+UPDATE queued_jobs
+SET status='in-progress',
+	updated_at=now()
+FROM queued_job
+WHERE queued_jobs.id = queued_job.inner_id
+	AND status='queued'
+RETURNING queued_jobs.id, queued_jobs.name, queued_jobs.attempts, queued_jobs.run_after, queued_jobs.expires_at, queued_jobs.created_at, queued_jobs.updated_at, queued_jobs.status, queued_jobs.data, queued_jobs.auto_id
+`
+
+func (q *Queries) OldAcquireJob(ctx context.Context, name string) (QueuedJob, error) {
+	row := q.db.QueryRowContext(ctx, oldAcquireJob, name)
+	var i QueuedJob
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Attempts,
+		&i.RunAfter,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Status,
+		&i.Data,
+		&i.AutoID,
+	)
+	return i, err
+}
