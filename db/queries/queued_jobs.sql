@@ -22,21 +22,31 @@ WHERE id = $1;
 -- name: DeleteQueuedJob :many
 DELETE FROM queued_jobs
 WHERE id = $1
-RETURNING count(id) as rows_deleted;
+RETURNING id as rows_deleted;
 
 -- name: AcquireJob :one
-WITH queued_job as (
-    SELECT id AS inner_id
+WITH queued_job_id as (
+    SELECT id AS inner_id,
+        auto_id as hash_key
     FROM queued_jobs
-    WHERE status='queued'
+    WHERE status = 'queued'
     AND queued_jobs.name = $1
     AND run_after <= now()
     ORDER BY created_at ASC
     LIMIT 1
 )
-SELECT *
+SELECT queued_jobs.*
 FROM queued_jobs
-WHERE pg_try_advisory_lock(queued_job.id);
+INNER JOIN queued_job_id ON queued_jobs.id = queued_job_id.inner_id
+WHERE id = queued_job_id.inner_id
+AND pg_try_advisory_lock(queued_job_id.hash_key);
+
+-- name: MarkInProgress :one
+UPDATE queued_jobs
+SET status = 'in-progress',
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
 
 -- name: GetQueuedCountsByStatus :many
 SELECT name, count(*)
@@ -60,3 +70,12 @@ SET status = 'queued',
 WHERE id = $1
 	AND attempts=$2
 	RETURNING *;
+
+-- name: CountReadyAndAll :one
+WITH all_count AS (
+	SELECT count(*) FROM queued_jobs
+), ready_count AS (
+	SELECT count(*) FROM queued_jobs WHERE run_after <= now()
+)
+SELECT all_count.count as all, ready_count.count as ready
+FROM all_count, ready_count;
