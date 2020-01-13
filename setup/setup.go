@@ -2,6 +2,7 @@
 package setup
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -79,11 +80,11 @@ func MeasureInProgressJobs(interval time.Duration) {
 
 // DB initializes a connection to the database, and prepares queries on all
 // models.
-func DB(connector db.Connector, dbConns int) error {
+func DB(ctx context.Context, connector db.Connector, dbConns int) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if db.Conn != nil {
-		if err := db.Conn.Ping(); err == nil {
+		if err := db.Conn.PingContext(ctx); err == nil {
 			// Already connected.
 			return nil
 		}
@@ -93,14 +94,14 @@ func DB(connector db.Connector, dbConns int) error {
 	if err != nil {
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
-	if err := db.Conn.Ping(); err != nil {
+	if err := db.Conn.PingContext(ctx); err != nil {
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
-	return PrepareAll()
+	return PrepareAll(ctx)
 }
 
-func PrepareAll() error {
-	if err := models.Setup(); err != nil {
+func PrepareAll(ctx context.Context) error {
+	if err := models.Setup(ctx); err != nil {
 		return err
 	}
 	if err := prepare(); err != nil {

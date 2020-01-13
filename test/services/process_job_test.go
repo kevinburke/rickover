@@ -30,6 +30,16 @@ func TestAll(t *testing.T) {
 	})
 }
 
+func newParams(id types.PrefixUUID, name string, runAfter time.Time, expiresAt types.NullTime, data []byte) newmodels.EnqueueJobParams {
+	return newmodels.EnqueueJobParams{
+		ID:        id,
+		Name:      name,
+		RunAfter:  runAfter,
+		ExpiresAt: expiresAt,
+		Data:      data,
+	}
+}
+
 func testExpiredJobNotEnqueued(t *testing.T) {
 	t.Parallel()
 
@@ -47,7 +57,7 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 		Valid: true,
 		Time:  time.Now().UTC().Add(-5 * time.Millisecond),
 	}
-	qj, err := queued_jobs.Enqueue(factory.JobId, "echo", time.Now().UTC(), expiresAt, factory.EmptyData)
+	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", time.Now().UTC(), expiresAt, factory.EmptyData))
 	test.AssertNotError(t, err, "")
 	err = jp.DoWork(qj)
 	test.AssertNotError(t, err, "")
@@ -85,7 +95,7 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 	var data json.RawMessage
 	data, err = json.Marshal(factory.RD)
 	test.AssertNotError(t, err, "")
-	qj, err := queued_jobs.Enqueue(pid, "echo", time.Now(), types.NullTime{Valid: false}, data)
+	qj, err := queued_jobs.Enqueue(newParams(pid, "echo", time.Now(), types.NullTime{Valid: false}, data))
 	test.AssertNotError(t, err, "")
 
 	var mu sync.Mutex

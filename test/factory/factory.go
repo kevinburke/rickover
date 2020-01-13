@@ -38,14 +38,14 @@ var RD = &RandomData{
 	Baz: uint8(17),
 }
 
-var SampleJob = newmodels.Job{
+var SampleJob = newmodels.CreateJobParams{
 	Name:             "echo",
 	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         7,
 	Concurrency:      1,
 }
 
-var SampleAtMostOnceJob = newmodels.Job{
+var SampleAtMostOnceJob = newmodels.CreateJobParams{
 	Name:             "at-most-once",
 	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Attempts:         1,
@@ -61,14 +61,9 @@ func RandomId(prefix string) types.PrefixUUID {
 	}
 }
 
-func CreateJob(t testing.TB, j newmodels.Job) newmodels.Job {
+func CreateJob(t testing.TB, j newmodels.CreateJobParams) newmodels.Job {
 	test.SetUp(t)
-	job, err := jobs.Create(newmodels.CreateJobParams{
-		Name:             j.Name,
-		DeliveryStrategy: j.DeliveryStrategy,
-		Attempts:         j.Attempts,
-		Concurrency:      j.Concurrency,
-	})
+	job, err := jobs.Create(j)
 	test.AssertNotError(t, err, "")
 	return *job
 }
@@ -84,7 +79,7 @@ func CreateQueuedJob(t testing.TB, data json.RawMessage) *newmodels.QueuedJob {
 // Like the above but with unique ID's and job names
 func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, *newmodels.QueuedJob) {
 	id := types.GenerateUUID("jobname_")
-	j := newmodels.Job{
+	j := newmodels.CreateJobParams{
 		Name:             id.String(),
 		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         7,
@@ -145,7 +140,7 @@ func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *n
 	return createJobAndQueuedJob(t, SampleAtMostOnceJob, data, false)
 }
 
-func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
+func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
 	test.SetUp(t)
 	job, err := jobs.Create(newmodels.CreateJobParams{
 		Name:             j.Name,

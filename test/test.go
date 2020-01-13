@@ -1,9 +1,11 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/setup"
@@ -14,7 +16,9 @@ func SetUp(t testing.TB) {
 	if os.Getenv("DATABASE_URL") == "" {
 		os.Setenv("DATABASE_URL", "postgres://rickover@localhost:5432/rickover_test?sslmode=disable&timezone=UTC")
 	}
-	if err := setup.DB(db.DefaultConnection, 10); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	if err := setup.DB(ctx, db.DefaultConnection, 10); err != nil {
 		t.Fatal(err)
 	}
 }

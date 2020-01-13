@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -27,7 +28,7 @@ func configure() (http.Handler, error) {
 		dbConns = 10
 	}
 
-	if err = setup.DB(db.DefaultConnection, dbConns); err != nil {
+	if err = setup.DB(context.Background(), db.DefaultConnection, dbConns); err != nil {
 		return nil, err
 	}
 

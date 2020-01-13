@@ -14,3 +14,6 @@ WHERE name = $1;
 
 -- name: GetAllJobs :many
 SELECT * FROM jobs;
+
+-- name: DeleteAllJobs :execrows
+DELETE FROM jobs;

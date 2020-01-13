@@ -1,6 +1,7 @@
 package newmodels
 
 import (
+	"context"
 	"errors"
 
 	"github.com/kevinburke/rickover/models/db"
@@ -8,11 +9,12 @@ import (
 
 var DB *Queries
 
-func Setup() error {
+func Setup(ctx context.Context) error {
 	if !db.Connected() {
 		return errors.New("newmodels: no database connection, bailing")
 	}
 
-	DB = New(db.Conn)
-	return nil
+	var err error
+	DB, err = Prepare(ctx, db.Conn)
+	return err
 }

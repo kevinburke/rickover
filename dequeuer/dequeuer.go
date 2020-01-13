@@ -191,7 +191,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 
 		case <-time.After(waitDuration):
 			start := time.Now()
-			qj, err := queued_jobs.Acquire(name)
+			qj, err := queued_jobs.Acquire(name, d.ID)
 			go metrics.Time("acquire.latency", time.Since(start))
 			if err == nil {
 				failedAcquireCount = 0

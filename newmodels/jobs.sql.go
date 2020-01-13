@@ -43,6 +43,18 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, erro
 	return i, err
 }
 
+const deleteAllJobs = `-- name: DeleteAllJobs :execrows
+DELETE FROM jobs
+`
+
+func (q *Queries) DeleteAllJobs(ctx context.Context) (int64, error) {
+	result, err := q.exec(ctx, q.deleteAllJobsStmt, deleteAllJobs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getAllJobs = `-- name: GetAllJobs :many
 SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id FROM jobs
 `

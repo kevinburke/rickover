@@ -297,7 +297,7 @@ func Test404JobNotFound(t *testing.T) {
 	test.AssertEquals(t, w.Code, http.StatusNotFound)
 }
 
-var sampleJob = newmodels.Job{
+var sampleJob = newmodels.CreateJobParams{
 	Attempts:         1,
 	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 	Concurrency:      1,

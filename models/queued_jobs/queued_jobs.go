@@ -122,11 +122,12 @@ func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
 }
 
 var useOldMethod = false
+var useRecursiveMethod = true
 
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
 // a row, or a generic error/sql.ErrNoRows if no jobs are available.
-func Acquire(name string) (*newmodels.QueuedJob, error) {
+func Acquire(name string, workerID int) (*newmodels.QueuedJob, error) {
 	if useOldMethod {
 		qj, err := newmodels.DB.OldAcquireJob(context.TODO(), name)
 		if err != nil {
@@ -140,22 +141,86 @@ func Acquire(name string) (*newmodels.QueuedJob, error) {
 		return nil, err
 	}
 	qs := newmodels.DB.WithTx(tx)
-
-	qjid, err := qs.AcquireJob(context.TODO(), name)
-	if err != nil {
-		tx.Rollback()
-		err = dberror.GetError(err)
-		return nil, err
-	}
-	qj, err := qs.MarkInProgress(context.TODO(), qjid)
-	if err != nil {
-		return nil, err
+	var qjid types.PrefixUUID
+	var autoid int64
+	if useRecursiveMethod {
+		err = tx.QueryRow(`
+WITH RECURSIVE lock_candidates (n) AS (
+    -- Pick a bunch of candidate jobs from the database
+    SELECT * FROM (
+        SELECT 0, auto_id, id,
+        row_number() over (order by auto_id) as rownumber, false as locked, 0::bigint as locked_row_id
+        FROM queued_jobs
+        WHERE status='queued' 
+            AND name = $1
+            AND run_after < now()
+        ORDER BY auto_id
+        LIMIT 100
+    ) t1
+  UNION ALL (
+    -- Try to lock each one in turn. The first time we recurse, n+1 = 1, so we
+    -- try to lock the first row in the CASE WHEN statement.
+    -- Second time, n+1 = 2, we try to lock the second row in the CASE WHEN
+    -- statement.
+    WITH t2 AS (
+        SELECT lock_candidates.n+1, lock_candidates.auto_id, lock_candidates.id,
+            lock_candidates.rownumber,
+            CASE WHEN lock_candidates.n+1 = lock_candidates.rownumber
+                THEN (pg_try_advisory_xact_lock(lock_candidates.auto_id))
+                ELSE false
+            END AS locked
+        FROM queued_jobs
+        -- Join so we only check the rows that were pulled by the first query
+        INNER JOIN lock_candidates ON queued_jobs.auto_id = lock_candidates.auto_id
+        WHERE lock_candidates.n < 100
+    ), t2_and_locked_row AS (
+        -- Put the auto_id of the locked row at the end of every row, we use
+        -- this to make t3 easier
+        SELECT t2.*, COALESCE((SELECT auto_id c FROM t2 WHERE locked = true LIMIT 1), 0) locked_row_id FROM t2
+    )
+    -- Return either the single locked row OR all of the non-locked rows.
+    SELECT *
+    FROM t2_and_locked_row t3
+    WHERE (locked_row_id > 0 AND t3.auto_id = locked_row_id) OR (
+        locked_row_id = 0
+    )
+  )
+)
+UPDATE queued_jobs
+SET status = 'in-progress', updated_at = now()
+WHERE id = (SELECT id FROM lock_candidates where locked_row_id > 0 LIMIT 1)
+RETURNING id, auto_id
+-- SELECT id FROM lock_candidates where locked_row_id > 0 LIMIT 1
+`, name).Scan(&qjid, &autoid)
+		if err != nil {
+			fmt.Printf("worker %d, name %q caught error: %#v\n", workerID, name, err)
+			tx.Rollback()
+			err = dberror.GetError(err)
+			return nil, err
+		}
+	} else {
+		for i := 0; i < 5; i++ {
+			qjid, err = qs.AcquireJob(context.TODO(), name)
+			if err != sql.ErrNoRows {
+				break
+			}
+		}
+		if err != nil {
+			tx.Rollback()
+			err = dberror.GetError(err)
+			return nil, err
+		}
+		qj, err := qs.MarkInProgress(context.TODO(), qjid)
+		if err != nil {
+			return nil, err
+		}
+		_ = qj
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	qj.ID.Prefix = Prefix
-	return &qj, nil
+	//qj.ID.Prefix = Prefix
+	return &newmodels.QueuedJob{ID: qjid}, nil
 }
 
 // Decrement decrements the attempts counter for an existing job, and sets

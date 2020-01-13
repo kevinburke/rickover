@@ -37,6 +37,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.decrementQueuedJobStmt, err = db.PrepareContext(ctx, decrementQueuedJob); err != nil {
 		return nil, fmt.Errorf("error preparing query DecrementQueuedJob: %w", err)
 	}
+	if q.deleteAllJobsStmt, err = db.PrepareContext(ctx, deleteAllJobs); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAllJobs: %w", err)
+	}
+	if q.deleteAllQueuedJobsStmt, err = db.PrepareContext(ctx, deleteAllQueuedJobs); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteAllQueuedJobs: %w", err)
+	}
 	if q.deleteQueuedJobStmt, err = db.PrepareContext(ctx, deleteQueuedJob); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteQueuedJob: %w", err)
 	}
@@ -98,6 +104,16 @@ func (q *Queries) Close() error {
 	if q.decrementQueuedJobStmt != nil {
 		if cerr := q.decrementQueuedJobStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing decrementQueuedJobStmt: %w", cerr)
+		}
+	}
+	if q.deleteAllJobsStmt != nil {
+		if cerr := q.deleteAllJobsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAllJobsStmt: %w", cerr)
+		}
+	}
+	if q.deleteAllQueuedJobsStmt != nil {
+		if cerr := q.deleteAllQueuedJobsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteAllQueuedJobsStmt: %w", cerr)
 		}
 	}
 	if q.deleteQueuedJobStmt != nil {
@@ -199,6 +215,8 @@ type Queries struct {
 	createArchivedJobStmt       *sql.Stmt
 	createJobStmt               *sql.Stmt
 	decrementQueuedJobStmt      *sql.Stmt
+	deleteAllJobsStmt           *sql.Stmt
+	deleteAllQueuedJobsStmt     *sql.Stmt
 	deleteQueuedJobStmt         *sql.Stmt
 	enqueueJobStmt              *sql.Stmt
 	enqueueJobFastStmt          *sql.Stmt
@@ -221,6 +239,8 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createArchivedJobStmt:       q.createArchivedJobStmt,
 		createJobStmt:               q.createJobStmt,
 		decrementQueuedJobStmt:      q.decrementQueuedJobStmt,
+		deleteAllJobsStmt:           q.deleteAllJobsStmt,
+		deleteAllQueuedJobsStmt:     q.deleteAllQueuedJobsStmt,
 		deleteQueuedJobStmt:         q.deleteQueuedJobStmt,
 		enqueueJobStmt:              q.enqueueJobStmt,
 		enqueueJobFastStmt:          q.enqueueJobFastStmt,

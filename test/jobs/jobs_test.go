@@ -24,7 +24,7 @@ func TestAll(t *testing.T) {
 
 func testCreateMissingFields(t *testing.T) {
 	t.Parallel()
-	job := newmodels.Job{
+	job := newmodels.CreateJobParams{
 		Name: "email-signup",
 	}
 	_, err := jobs.Create(job)
@@ -35,7 +35,7 @@ func testCreateMissingFields(t *testing.T) {
 func testCreateInvalidFields(t *testing.T) {
 	t.Parallel()
 	test.SetUp(t)
-	job := newmodels.Job{
+	job := newmodels.CreateJobParams{
 		Name:             "email-signup",
 		DeliveryStrategy: newmodels.DeliveryStrategy("foo"),
 	}
@@ -44,10 +44,10 @@ func testCreateInvalidFields(t *testing.T) {
 	test.AssertEquals(t, err.Error(), "Invalid delivery_strategy: \"foo\"")
 }
 
-func newJob(t *testing.T) newmodels.Job {
+func newJob(t *testing.T) newmodels.CreateJobParams {
 	t.Helper()
 	id := types.GenerateUUID("jobname_")
-	return newmodels.Job{
+	return newmodels.CreateJobParams{
 		Name:             id.String(),
 		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         3,

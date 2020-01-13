@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/kevinburke/go-simple-metrics"
+	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/models/db"
@@ -32,7 +32,7 @@ func main() {
 		dbConns = 20
 	}
 
-	err = setup.DB(db.DefaultConnection, dbConns)
+	err = setup.DB(context.Background(), db.DefaultConnection, dbConns)
 	checkError(err)
 
 	go setup.MeasureActiveQueries(1 * time.Second)

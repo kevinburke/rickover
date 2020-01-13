@@ -19,7 +19,7 @@ import (
 
 var empty = json.RawMessage([]byte("{}"))
 
-var sampleJob = newmodels.Job{
+var sampleJob = newmodels.CreateJobParams{
 	Name:             "echo",
 	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 	Attempts:         3,
@@ -63,7 +63,7 @@ func TestEnqueue(t *testing.T) {
 func testEnqueueNoData(t *testing.T) {
 	t.Parallel()
 	id := types.GenerateUUID("jobname_")
-	j := newmodels.Job{
+	j := newmodels.CreateJobParams{
 		Name:             id.String(),
 		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         7,
@@ -76,13 +76,29 @@ func testEnqueueNoData(t *testing.T) {
 	runAfter := time.Now().UTC()
 
 	qjid := types.GenerateUUID("job_")
-	_, err = queued_jobs.Enqueue(qjid, j.Name, runAfter, expiresAt, []byte{})
+	_, err = queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+		ID:        qjid,
+		Name:      j.Name,
+		RunAfter:  runAfter,
+		ExpiresAt: expiresAt,
+		Data:      []byte{},
+	})
 	test.AssertError(t, err, "")
 	switch terr := err.(type) {
 	case *dberror.Error:
 		test.AssertEquals(t, terr.Message, "Invalid input syntax for type json")
 	default:
 		t.Fatalf("Expected a dberror, got %#v", terr)
+	}
+}
+
+func newParams(id types.PrefixUUID, name string, runAfter time.Time, expiresAt types.NullTime, data []byte) newmodels.EnqueueJobParams {
+	return newmodels.EnqueueJobParams{
+		ID:        id,
+		Name:      name,
+		RunAfter:  runAfter,
+		ExpiresAt: expiresAt,
+		Data:      data,
 	}
 }
 
@@ -95,9 +111,9 @@ func TestEnqueueJobExists(t *testing.T) {
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 
-	_, err = queued_jobs.Enqueue(factory.JobId, "echo", runAfter, expiresAt, empty)
+	_, err = queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
-	_, err = queued_jobs.Enqueue(factory.JobId, "echo", runAfter, expiresAt, empty)
+	_, err = queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	switch terr := err.(type) {
 	case *dberror.Error:
@@ -116,7 +132,7 @@ func testEnqueueUnknownJobTypeErrNoRows(t *testing.T) {
 
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	_, err := queued_jobs.Enqueue(factory.JobId, "unknownJob", runAfter, expiresAt, empty)
+	_, err := queued_jobs.Enqueue(newParams(factory.JobId, "unknownJob", runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	test.AssertEquals(t, err.Error(), "Job type unknownJob does not exist or the job with that id has already been archived")
 }
@@ -128,7 +144,7 @@ func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	_, err = queued_jobs.Enqueue(qj.ID, qj.Name, runAfter, expiresAt, empty)
+	_, err = queued_jobs.Enqueue(newParams(qj.ID, qj.Name, runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	test.AssertEquals(t, err.Error(), "Job type "+qj.Name+" does not exist or the job with that id has already been archived")
 }
@@ -193,7 +209,7 @@ func TestDataRoundtrip(t *testing.T) {
 	var d json.RawMessage
 	d, err = json.Marshal(user)
 	test.AssertNotError(t, err, "")
-	qj, err := queued_jobs.Enqueue(factory.JobId, "echo", runAfter, expiresAt, d)
+	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, d))
 	test.AssertNotError(t, err, "")
 
 	gotQj, err := queued_jobs.Get(qj.ID)
@@ -254,7 +270,7 @@ func TestAcquireDoesntGetFutureJob(t *testing.T) {
 
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC().Add(20 * time.Millisecond)
-	qj, err := queued_jobs.Enqueue(factory.JobId, "echo", runAfter, expiresAt, empty)
+	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Acquire(qj.Name)
 	test.AssertEquals(t, err, sql.ErrNoRows)
@@ -269,7 +285,7 @@ func TestAcquireDoesntGetInProgressJob(t *testing.T) {
 
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	qj, err := queued_jobs.Enqueue(factory.JobId, "echo", runAfter, expiresAt, empty)
+	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
 	qj, err = queued_jobs.Acquire(qj.Name)
 	test.AssertNotError(t, err, "")
