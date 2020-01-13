@@ -11,7 +11,6 @@ import (
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models"
-	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 )
@@ -20,39 +19,6 @@ const Prefix = "job_"
 
 // ErrNotFound indicates that the archived job was not found.
 var ErrNotFound = errors.New("archived_jobs: job not found")
-
-var createStmt *sql.Stmt
-var getStmt *sql.Stmt
-
-// Setup prepares all database statements.
-func Setup() (err error) {
-	if !db.Connected() {
-		return errors.New("archived_jobs: no DB connection was established, can't query")
-	}
-
-	if createStmt != nil {
-		return
-	}
-
-	query := fmt.Sprintf(`-- archived_jobs.Create
-INSERT INTO archived_jobs (%s) 
-SELECT id, $2, $4, $3, data, expires_at
-FROM queued_jobs 
-WHERE id=$1
-AND name=$2
-RETURNING %s`, insertFields(), fields())
-	createStmt, err = db.Conn.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	query = fmt.Sprintf(`-- archived_jobs.Get
-SELECT %s
-FROM archived_jobs
-WHERE id = $1`, fields())
-	getStmt, err = db.Conn.Prepare(query)
-	return
-}
 
 // Create an archived job with the given id, status, and attempts. Assumes that
 // the job already exists in the queued_jobs table; the `data` field is copied
@@ -70,6 +36,7 @@ func Create(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus
 		}
 		return nil, dberror.GetError(err)
 	}
+	aj.ID.Prefix = Prefix
 	return &aj, nil
 }
 
@@ -80,6 +47,7 @@ func Get(id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
 	if err != nil {
 		return nil, dberror.GetError(err)
 	}
+	aj.ID.Prefix = Prefix
 	return &aj, nil
 }
 

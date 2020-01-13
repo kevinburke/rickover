@@ -130,7 +130,7 @@ func TestRetrieveJob(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -146,7 +146,7 @@ func TestRetrieveJobNoName(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -162,7 +162,7 @@ func TestRetrieveArchivedJob(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
-	var aj models.ArchivedJob
+	var aj newmodels.ArchivedJob
 	err := json.NewDecoder(w.Body).Decode(&aj)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -178,7 +178,7 @@ func TestReplayJob(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, 201)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertNotEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -192,7 +192,7 @@ func TestReplayJobWithNoName(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, 201)
-	var qj models.QueuedJob
+	var qj newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&qj)
 	test.AssertNotError(t, err, "")
 	test.AssertNotEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
@@ -225,11 +225,11 @@ func Test202SuccessfulEnqueue(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusAccepted)
-	var j models.QueuedJob
+	var j newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&j)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, j.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
-	test.AssertEquals(t, j.Attempts, uint8(7))
+	test.AssertEquals(t, j.Attempts, int16(7))
 	test.AssertEquals(t, j.Status, newmodels.JobStatusQueued)
 	test.AssertEquals(t, j.Name, "echo")
 

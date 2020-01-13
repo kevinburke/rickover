@@ -1,7 +1,6 @@
 package services
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -44,7 +43,7 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 
 	_, err := jobs.Create(factory.SampleJob)
 	test.AssertNotError(t, err, "")
-	expiresAt := sql.NullTime{
+	expiresAt := types.NullTime{
 		Valid: true,
 		Time:  time.Now().UTC().Add(-5 * time.Millisecond),
 	}
@@ -86,7 +85,7 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 	var data json.RawMessage
 	data, err = json.Marshal(factory.RD)
 	test.AssertNotError(t, err, "")
-	qj, err := queued_jobs.Enqueue(pid, "echo", time.Now(), sql.NullTime{Valid: false}, data)
+	qj, err := queued_jobs.Enqueue(pid, "echo", time.Now(), types.NullTime{Valid: false}, data)
 	test.AssertNotError(t, err, "")
 
 	var mu sync.Mutex

@@ -44,7 +44,7 @@ var StuckJobLimit = 100
 // job exists, job name unknown, &c. A sql.ErrNoRows will be returned if the
 // `name` does not exist in the jobs table. Otherwise the QueuedJob will be
 // returned.
-func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt sql.NullTime, data json.RawMessage) (*newmodels.QueuedJob, error) {
+func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt types.NullTime, data json.RawMessage) (*newmodels.QueuedJob, error) {
 	qj, err := newmodels.DB.EnqueueJob(context.TODO(), newmodels.EnqueueJobParams{
 		ID:        id,
 		Name:      name,
@@ -61,6 +61,7 @@ func Enqueue(id types.PrefixUUID, name string, runAfter time.Time, expiresAt sql
 		}
 		return nil, dberror.GetError(err)
 	}
+	qj.ID.Prefix = Prefix
 	return &qj, err
 }
 
@@ -74,6 +75,7 @@ func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {
 	if err != nil {
 		return nil, dberror.GetError(err)
 	}
+	qj.ID.Prefix = Prefix
 	return &qj, nil
 }
 
@@ -136,6 +138,7 @@ func Acquire(name string) (*newmodels.QueuedJob, error) {
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	qj2.ID.Prefix = Prefix
 	return &qj2, nil
 }
 
@@ -155,6 +158,7 @@ func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmod
 	if err != nil {
 		return nil, dberror.GetError(err)
 	}
+	qj.ID.Prefix = Prefix
 	return &qj, nil
 }
 
@@ -165,6 +169,9 @@ func GetOldInProgressJobs(olderThan time.Time) ([]newmodels.QueuedJob, error) {
 	jobs, err := newmodels.DB.GetOldInProgressJobs(context.Background(), olderThan)
 	if err != nil {
 		return nil, dberror.GetError(err)
+	}
+	for i := range jobs {
+		jobs[i].ID.Prefix = Prefix
 	}
 	return jobs, nil
 }
@@ -189,8 +196,11 @@ func GetCountsByStatus(status newmodels.JobStatus) (map[string]int64, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("counts", counts)
-	return nil, nil
+	mp := make(map[string]int64, len(counts))
+	for i := range counts {
+		mp[counts[i].Name] = counts[i].Count
+	}
+	return mp, nil
 }
 
 func insertFields() string {

@@ -1,7 +1,7 @@
 -- +goose Up
-ALTER TABLE queued_jobs ADD COLUMN auto_id BIGSERIAL;
-ALTER TABLE archived_jobs ADD COLUMN auto_id BIGSERIAL;
-ALTER TABLE jobs ADD COLUMN auto_id BIGSERIAL;
+ALTER TABLE queued_jobs ADD COLUMN auto_id BIGSERIAL NOT NULL;
+ALTER TABLE archived_jobs ADD COLUMN auto_id BIGSERIAL NOT NULL;
+ALTER TABLE jobs ADD COLUMN auto_id BIGSERIAL NOT NULL;
 
 -- +goose Down
 

@@ -2,7 +2,6 @@
 package factory
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -91,7 +90,7 @@ func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, 
 
 func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *newmodels.QueuedJob {
 	t.Helper()
-	expiresAt := sql.NullTime{Valid: false}
+	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 	id := RandomId("job_")
 	qj, err := queued_jobs.Enqueue(id, name, runAfter, expiresAt, data)
@@ -112,7 +111,7 @@ func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	})
 	test.AssertNotError(t, err, "create job failed")
 	now := time.Now().UTC()
-	expires := sql.NullTime{
+	expires := types.NullTime{
 		Time:  now.Add(5 * time.Minute),
 		Valid: true,
 	}
@@ -154,7 +153,7 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.Job, data json.RawMessage, 
 		}
 	}
 
-	expiresAt := sql.NullTime{Valid: false}
+	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 	var id types.PrefixUUID
 	if randomId {

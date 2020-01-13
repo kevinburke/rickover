@@ -1,7 +1,6 @@
 package server
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -32,7 +31,7 @@ func replayHandler() http.Handler {
 		var jobName string
 		var data json.RawMessage
 		qj, err := queued_jobs.GetRetry(id, 3)
-		var expiresAt sql.NullTime
+		var expiresAt types.NullTime
 		if err == nil {
 			if qj.Status == newmodels.JobStatusQueued {
 				apierr := &rest.Error{
