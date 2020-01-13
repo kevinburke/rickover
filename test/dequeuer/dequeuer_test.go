@@ -65,7 +65,7 @@ func testWorkerMakesCorrectRequest(t *testing.T) {
 	var ok bool
 	var workRequest struct {
 		Data     *factory.RandomData `json:"data"`
-		Attempts uint8               `json:"attempts"`
+		Attempts int16               `json:"attempts"`
 	}
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path

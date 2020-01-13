@@ -14,7 +14,7 @@ INSERT INTO jobs (
     attempts,
     concurrency)
 VALUES ($1, $2, $3, $4)
-RETURNING name, delivery_strategy, attempts, concurrency, created_at
+RETURNING name, delivery_strategy, attempts, concurrency, created_at, auto_id
 `
 
 type CreateJobParams struct {
@@ -38,12 +38,13 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, erro
 		&i.Attempts,
 		&i.Concurrency,
 		&i.CreatedAt,
+		&i.AutoID,
 	)
 	return i, err
 }
 
 const getAllJobs = `-- name: GetAllJobs :many
-SELECT name, delivery_strategy, attempts, concurrency, created_at FROM jobs
+SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id FROM jobs
 `
 
 func (q *Queries) GetAllJobs(ctx context.Context) ([]Job, error) {
@@ -61,6 +62,7 @@ func (q *Queries) GetAllJobs(ctx context.Context) ([]Job, error) {
 			&i.Attempts,
 			&i.Concurrency,
 			&i.CreatedAt,
+			&i.AutoID,
 		); err != nil {
 			return nil, err
 		}
@@ -76,7 +78,7 @@ func (q *Queries) GetAllJobs(ctx context.Context) ([]Job, error) {
 }
 
 const getJob = `-- name: GetJob :one
-SELECT name, delivery_strategy, attempts, concurrency, created_at
+SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id
 FROM jobs
 WHERE name = $1
 `
@@ -90,6 +92,7 @@ func (q *Queries) GetJob(ctx context.Context, name string) (Job, error) {
 		&i.Attempts,
 		&i.Concurrency,
 		&i.CreatedAt,
+		&i.AutoID,
 	)
 	return i, err
 }

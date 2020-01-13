@@ -55,6 +55,7 @@ type ArchivedJob struct {
 	CreatedAt time.Time         `json:"created_at"`
 	Data      json.RawMessage   `json:"data"`
 	ExpiresAt sql.NullTime      `json:"expires_at"`
+	AutoID    sql.NullInt64     `json:"auto_id"`
 }
 
 type Job struct {
@@ -63,6 +64,7 @@ type Job struct {
 	Attempts         int16            `json:"attempts"`
 	Concurrency      int16            `json:"concurrency"`
 	CreatedAt        time.Time        `json:"created_at"`
+	AutoID           sql.NullInt64    `json:"auto_id"`
 }
 
 type QueuedJob struct {
@@ -75,4 +77,5 @@ type QueuedJob struct {
 	UpdatedAt time.Time        `json:"updated_at"`
 	Status    JobStatus        `json:"status"`
 	Data      json.RawMessage  `json:"data"`
+	AutoID    sql.NullInt64    `json:"auto_id"`
 }

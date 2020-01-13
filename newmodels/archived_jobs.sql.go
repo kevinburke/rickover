@@ -15,7 +15,7 @@ SELECT id, $2, $4, $3, data, expires_at
 FROM queued_jobs
 WHERE queued_jobs.id = $1
 AND name = $2
-RETURNING id, name, attempts, status, created_at, data, expires_at
+RETURNING id, name, attempts, status, created_at, data, expires_at, auto_id
 `
 
 type CreateArchivedJobParams struct {
@@ -41,12 +41,13 @@ func (q *Queries) CreateArchivedJob(ctx context.Context, arg CreateArchivedJobPa
 		&i.CreatedAt,
 		&i.Data,
 		&i.ExpiresAt,
+		&i.AutoID,
 	)
 	return i, err
 }
 
 const getArchivedJob = `-- name: GetArchivedJob :one
-SELECT id, name, attempts, status, created_at, data, expires_at
+SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
 FROM archived_jobs
 WHERE id = $1
 `
@@ -62,6 +63,7 @@ func (q *Queries) GetArchivedJob(ctx context.Context, id types.PrefixUUID) (Arch
 		&i.CreatedAt,
 		&i.Data,
 		&i.ExpiresAt,
+		&i.AutoID,
 	)
 	return i, err
 }
