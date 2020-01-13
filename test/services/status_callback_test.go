@@ -58,7 +58,7 @@ func testStatusCallbackFailedAtLeastOnceUpdatesQueuedRecord(t *testing.T) {
 
 	qj, err = queued_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "")
-	test.AssertEquals(t, qj.Attempts, uint8(6))
+	test.AssertEquals(t, qj.Attempts, int16(6))
 
 	_, err = archived_jobs.Get(qj.ID)
 	test.AssertEquals(t, err, archived_jobs.ErrNotFound)
