@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -205,18 +204,8 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))
 				}
 			} else {
-				dberr, ok := err.(*dberror.Error)
-				if ok && dberr.Code == dberror.CodeLockNotAvailable {
-					// SELECT 1 returned a record but another thread
-					// got it. Don't sleep at all.
-					go metrics.Increment(fmt.Sprintf("dequeue.%s.nowait", name))
-					failedAcquireCount = 0
-					waitDuration = time.Duration(0)
-					continue
-				}
-
 				failedAcquireCount++
-				waitDuration = d.W.Sleep(failedAcquireCount)
+				waitDuration = time.Duration(0)
 			}
 		}
 	}
