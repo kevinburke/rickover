@@ -501,6 +501,6 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(queuedJob)
-	metrics.Increment(fmt.Sprintf("enqueue.success"))
+	metrics.Increment("enqueue.success")
 	metrics.Increment(fmt.Sprintf("enqueue.%s.success", name))
 }

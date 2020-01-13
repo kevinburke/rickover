@@ -3,7 +3,6 @@ package test_queued_jobs
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -106,7 +105,7 @@ func TestEnqueueJobExists(t *testing.T) {
 		test.AssertEquals(t, terr.Column, "id")
 		test.AssertEquals(t, terr.Table, "queued_jobs")
 		test.AssertEquals(t, terr.Message,
-			fmt.Sprintf("A id already exists with this value (6740b44e-13b9-475d-af06-979627e0e0d6)"))
+			"A id already exists with this value (6740b44e-13b9-475d-af06-979627e0e0d6)")
 	default:
 		t.Fatalf("Expected a dberror, got %#v", terr)
 	}
