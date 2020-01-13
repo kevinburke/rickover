@@ -48,7 +48,7 @@ race-testonly:
 	envdir envs/test go test -p=1 -race -timeout 10s ./...
 
 truncate-test: $(TRUNCATE_TABLES)
-	DATABASE_URL=$(TEST_DATABASE_URL) $(TRUNCATE_TABLES)
+	envdir envs/test $(TRUNCATE_TABLES)
 
 race-test: race-testonly truncate-test
 

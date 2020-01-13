@@ -11,7 +11,6 @@ import (
 
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/newmodels"
 )
@@ -201,40 +200,4 @@ func GetCountsByStatus(status newmodels.JobStatus) (map[string]int64, error) {
 		mp[counts[i].Name] = counts[i].Count
 	}
 	return mp, nil
-}
-
-func insertFields() string {
-	return `id,
-	name,
-	attempts,
-	run_after,
-	expires_at,
-	status,
-	data`
-}
-
-func fields() string {
-	return fmt.Sprintf(`'%s' || id,
-	name,
-	attempts,
-	run_after,
-	expires_at,
-	status,
-	data,
-	created_at,
-	updated_at`, Prefix)
-}
-
-func args(qj *models.QueuedJob) []interface{} {
-	return []interface{}{
-		&qj.ID,
-		&qj.Name,
-		&qj.Attempts,
-		&qj.RunAfter,
-		&qj.ExpiresAt,
-		&qj.Status,
-		&qj.Data,
-		&qj.CreatedAt,
-		&qj.UpdatedAt,
-	}
 }

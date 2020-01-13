@@ -5,12 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 )
@@ -64,36 +62,4 @@ func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.ArchivedJob, 
 		time.Sleep(50 * time.Millisecond)
 	}
 	return
-}
-
-func insertFields() string {
-	return `id,
-	name,
-	attempts,
-	status,
-	data,
-	expires_at`
-}
-
-func fields() string {
-	return fmt.Sprintf(`'%s' || id,
-	name,
-	attempts,
-	status,
-	data,
-	created_at,
-	expires_at`, Prefix)
-}
-
-func args(aj *models.ArchivedJob, byteptr *[]byte) []interface{} {
-	return []interface{}{
-		&aj.ID,
-		&aj.Name,
-		&aj.Attempts,
-		&aj.Status,
-		// can't scan into Data because of https://github.com/golang/go/issues/13905
-		byteptr,
-		&aj.CreatedAt,
-		&aj.ExpiresAt,
-	}
 }

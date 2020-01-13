@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -84,6 +83,6 @@ func replayHandler() http.Handler {
 		}
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(queuedJob)
-		metrics.Increment(fmt.Sprintf("enqueue.replay.success"))
+		metrics.Increment("enqueue.replay.success")
 	})
 }

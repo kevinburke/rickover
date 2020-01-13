@@ -7,7 +7,6 @@ import (
 	"time"
 
 	dberror "github.com/kevinburke/go-dberror"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/lib/pq"
 )
@@ -54,31 +53,6 @@ func GetRetry(name string, attempts uint8) (job *newmodels.Job, err error) {
 		time.Sleep(50 * time.Millisecond)
 	}
 	return
-}
-
-func fields(includeCreatedAt bool) string {
-	if includeCreatedAt {
-		return `name,
-delivery_strategy,
-attempts,
-concurrency,
-created_at`
-	} else {
-		return `name,
-delivery_strategy,
-attempts,
-concurrency`
-	}
-}
-
-func args(job *models.Job) []interface{} {
-	return []interface{}{
-		&job.Name,
-		&job.DeliveryStrategy,
-		&job.Attempts,
-		&job.Concurrency,
-		&job.CreatedAt,
-	}
 }
 
 var concurrencyConstraint = &dberror.Constraint{
