@@ -452,10 +452,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := jobIdRoute.FindStringSubmatch(r.URL.Path)[1]
-	queuedJob, err := queued_jobs.Enqueue(id, name, ejr.RunAfter.Time, sql.NullTime{
-		Valid: ejr.ExpiresAt.Valid,
-		Time:  ejr.ExpiresAt.Time,
-	}, ejr.Data)
+	queuedJob, err := queued_jobs.Enqueue(id, name, ejr.RunAfter.Time, ejr.ExpiresAt, ejr.Data)
 	if err != nil {
 		switch terr := err.(type) {
 		case *queued_jobs.UnknownOrArchivedError:

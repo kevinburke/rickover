@@ -21,7 +21,7 @@ func TestStatusCallbackInsertsArchivedRecordDeletesQueuedRecord(t *testing.T) {
 	aj, err := archived_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
-	test.AssertEquals(t, aj.Attempts, uint8(7))
+	test.AssertEquals(t, aj.Attempts, int16(7))
 	test.AssertEquals(t, aj.Name, "echo")
 	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
 }

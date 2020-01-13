@@ -5,7 +5,6 @@ package newmodels
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -155,7 +154,7 @@ type EnqueueJobParams struct {
 	ID        types.PrefixUUID `json:"id"`
 	Name      string           `json:"name"`
 	RunAfter  time.Time        `json:"run_after"`
-	ExpiresAt sql.NullTime     `json:"expires_at"`
+	ExpiresAt types.NullTime   `json:"expires_at"`
 	Data      json.RawMessage  `json:"data"`
 }
 

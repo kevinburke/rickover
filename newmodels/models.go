@@ -3,7 +3,6 @@
 package newmodels
 
 import (
-	"database/sql"
 	"encoding/json"
 	"time"
 
@@ -54,8 +53,8 @@ type ArchivedJob struct {
 	Status    ArchivedJobStatus `json:"status"`
 	CreatedAt time.Time         `json:"created_at"`
 	Data      json.RawMessage   `json:"data"`
-	ExpiresAt sql.NullTime      `json:"expires_at"`
-	AutoID    sql.NullInt64     `json:"auto_id"`
+	ExpiresAt types.NullTime    `json:"expires_at"`
+	AutoID    int64             `json:"auto_id"`
 }
 
 type Job struct {
@@ -64,7 +63,7 @@ type Job struct {
 	Attempts         int16            `json:"attempts"`
 	Concurrency      int16            `json:"concurrency"`
 	CreatedAt        time.Time        `json:"created_at"`
-	AutoID           sql.NullInt64    `json:"auto_id"`
+	AutoID           int64            `json:"auto_id"`
 }
 
 type QueuedJob struct {
@@ -72,10 +71,10 @@ type QueuedJob struct {
 	Name      string           `json:"name"`
 	Attempts  int16            `json:"attempts"`
 	RunAfter  time.Time        `json:"run_after"`
-	ExpiresAt sql.NullTime     `json:"expires_at"`
+	ExpiresAt types.NullTime   `json:"expires_at"`
 	CreatedAt time.Time        `json:"created_at"`
 	UpdatedAt time.Time        `json:"updated_at"`
 	Status    JobStatus        `json:"status"`
 	Data      json.RawMessage  `json:"data"`
-	AutoID    sql.NullInt64    `json:"auto_id"`
+	AutoID    int64            `json:"auto_id"`
 }
