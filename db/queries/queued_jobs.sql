@@ -10,9 +10,24 @@ SELECT $1, jobs.name, attempts, $3, $4, 'queued', $5
 FROM jobs
 WHERE jobs.name = $2
 AND NOT EXISTS (
-	SELECT id FROM archived_jobs WHERE id = $1
+	SELECT 1 FROM archived_jobs WHERE id = $1
 )
 RETURNING *;
+
+-- name: EnqueueJobFast :exec
+INSERT INTO queued_jobs (id,
+	name,
+	attempts,
+	run_after,
+	expires_at,
+	status,
+	data)
+SELECT uuid_generate_v4(), jobs.name, attempts, $2, $3, 'queued', $4
+FROM jobs
+WHERE jobs.name = $1
+AND NOT EXISTS (
+	SELECT 1 FROM archived_jobs WHERE id = $1
+);
 
 -- name: GetQueuedJob :one
 SELECT *

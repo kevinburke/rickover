@@ -93,16 +93,14 @@ func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, 
 	return createJobAndQueuedJob(t, j, data, true)
 }
 
-func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) *newmodels.QueuedJob {
+func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) {
 	t.Helper()
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	id := RandomId("job_")
-	qj, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
-		ID: id, Name: name, RunAfter: runAfter, ExpiresAt: expiresAt, Data: data,
+	err := queued_jobs.EnqueueFast(newmodels.EnqueueJobFastParams{
+		Name: name, RunAfter: runAfter, ExpiresAt: expiresAt, Data: data,
 	})
 	test.AssertNotError(t, err, "")
-	return qj
 }
 
 // CreateQJ creates a job with a random name, and a random UUID.

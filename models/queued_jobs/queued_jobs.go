@@ -57,6 +57,20 @@ func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
 	return &qj, err
 }
 
+func EnqueueFast(params newmodels.EnqueueJobFastParams) error {
+	err := newmodels.DB.EnqueueJobFast(context.TODO(), params)
+	if err == nil {
+		return nil
+	}
+	if err == sql.ErrNoRows {
+		e := &UnknownOrArchivedError{
+			Err: fmt.Sprintf("Job type %s does not exist or the job with that id has already been archived", params.Name),
+		}
+		return e
+	}
+	return dberror.GetError(err)
+}
+
 // Get the queued job with the given id. Returns the job, or an error. If no
 // record could be found, the error will be `queued_jobs.ErrNotFound`.
 func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {

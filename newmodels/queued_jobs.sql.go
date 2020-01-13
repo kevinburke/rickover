@@ -133,7 +133,7 @@ SELECT $1, jobs.name, attempts, $3, $4, 'queued', $5
 FROM jobs
 WHERE jobs.name = $2
 AND NOT EXISTS (
-	SELECT id FROM archived_jobs WHERE id = $1
+	SELECT 1 FROM archived_jobs WHERE id = $1
 )
 RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, status, data, auto_id
 `
@@ -168,6 +168,39 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (QueuedJ
 		&i.AutoID,
 	)
 	return i, err
+}
+
+const enqueueJobFast = `-- name: EnqueueJobFast :exec
+INSERT INTO queued_jobs (id,
+	name,
+	attempts,
+	run_after,
+	expires_at,
+	status,
+	data)
+SELECT uuid_generate_v4(), jobs.name, attempts, $2, $3, 'queued', $4
+FROM jobs
+WHERE jobs.name = $1
+AND NOT EXISTS (
+	SELECT 1 FROM archived_jobs WHERE id = $1
+)
+`
+
+type EnqueueJobFastParams struct {
+	Name      string          `json:"name"`
+	RunAfter  time.Time       `json:"run_after"`
+	ExpiresAt types.NullTime  `json:"expires_at"`
+	Data      json.RawMessage `json:"data"`
+}
+
+func (q *Queries) EnqueueJobFast(ctx context.Context, arg EnqueueJobFastParams) error {
+	_, err := q.exec(ctx, q.enqueueJobFastStmt, enqueueJobFast,
+		arg.Name,
+		arg.RunAfter,
+		arg.ExpiresAt,
+		arg.Data,
+	)
+	return err
 }
 
 const getOldInProgressJobs = `-- name: GetOldInProgressJobs :many

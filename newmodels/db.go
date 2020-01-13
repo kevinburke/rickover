@@ -43,6 +43,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.enqueueJobStmt, err = db.PrepareContext(ctx, enqueueJob); err != nil {
 		return nil, fmt.Errorf("error preparing query EnqueueJob: %w", err)
 	}
+	if q.enqueueJobFastStmt, err = db.PrepareContext(ctx, enqueueJobFast); err != nil {
+		return nil, fmt.Errorf("error preparing query EnqueueJobFast: %w", err)
+	}
 	if q.getAllJobsStmt, err = db.PrepareContext(ctx, getAllJobs); err != nil {
 		return nil, fmt.Errorf("error preparing query GetAllJobs: %w", err)
 	}
@@ -105,6 +108,11 @@ func (q *Queries) Close() error {
 	if q.enqueueJobStmt != nil {
 		if cerr := q.enqueueJobStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing enqueueJobStmt: %w", cerr)
+		}
+	}
+	if q.enqueueJobFastStmt != nil {
+		if cerr := q.enqueueJobFastStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing enqueueJobFastStmt: %w", cerr)
 		}
 	}
 	if q.getAllJobsStmt != nil {
@@ -193,6 +201,7 @@ type Queries struct {
 	decrementQueuedJobStmt      *sql.Stmt
 	deleteQueuedJobStmt         *sql.Stmt
 	enqueueJobStmt              *sql.Stmt
+	enqueueJobFastStmt          *sql.Stmt
 	getAllJobsStmt              *sql.Stmt
 	getArchivedJobStmt          *sql.Stmt
 	getJobStmt                  *sql.Stmt
@@ -214,6 +223,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		decrementQueuedJobStmt:      q.decrementQueuedJobStmt,
 		deleteQueuedJobStmt:         q.deleteQueuedJobStmt,
 		enqueueJobStmt:              q.enqueueJobStmt,
+		enqueueJobFastStmt:          q.enqueueJobFastStmt,
 		getAllJobsStmt:              q.getAllJobsStmt,
 		getArchivedJobStmt:          q.getArchivedJobStmt,
 		getJobStmt:                  q.getJobStmt,
