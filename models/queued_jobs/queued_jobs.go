@@ -114,10 +114,20 @@ func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
 	return nil
 }
 
+var useOldMethod = true
+
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
 // a row, or a generic error/sql.ErrNoRows if no jobs are available.
 func Acquire(name string) (*newmodels.QueuedJob, error) {
+	if useOldMethod {
+		qj, err := newmodels.DB.OldAcquireJob(context.TODO(), name)
+		if err != nil {
+			return nil, err
+		}
+		qj.ID.Prefix = Prefix
+		return &qj, nil
+	}
 	tx, err := db.Conn.BeginTx(context.TODO(), nil)
 	if err != nil {
 		return nil, err
