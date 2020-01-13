@@ -35,11 +35,11 @@ WITH queued_job_id as (
     ORDER BY created_at ASC
     LIMIT 1
 )
-SELECT queued_jobs.*
+SELECT id, auto_id
 FROM queued_jobs
 INNER JOIN queued_job_id ON queued_jobs.id = queued_job_id.inner_id
 WHERE id = queued_job_id.inner_id
-AND pg_try_advisory_lock(queued_job_id.hash_key);
+    AND pg_try_advisory_lock(queued_job_id.hash_key);
 
 -- name: OldAcquireJob :one
 WITH queued_job as (

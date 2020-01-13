@@ -11,7 +11,6 @@ import (
 
 	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/newmodels"
 )
 
@@ -114,12 +113,12 @@ func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
 	return nil
 }
 
-var useOldMethod = true
+var useOldMethod = false
 
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
 // a row, or a generic error/sql.ErrNoRows if no jobs are available.
-func Acquire(name string) (*newmodels.QueuedJob, error) {
+func Acquire(tx *sql.Tx, name string) (*newmodels.QueuedJob, error) {
 	if useOldMethod {
 		qj, err := newmodels.DB.OldAcquireJob(context.TODO(), name)
 		if err != nil {
@@ -128,15 +127,9 @@ func Acquire(name string) (*newmodels.QueuedJob, error) {
 		qj.ID.Prefix = Prefix
 		return &qj, nil
 	}
-	tx, err := db.Conn.BeginTx(context.TODO(), nil)
-	if err != nil {
-		return nil, err
-	}
 	qs := newmodels.DB.WithTx(tx)
-
 	qj, err := qs.AcquireJob(context.TODO(), name)
 	if err != nil {
-		tx.Rollback()
 		err = dberror.GetError(err)
 		return nil, err
 	}

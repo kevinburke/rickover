@@ -175,11 +175,11 @@ func runDQBench(b *testing.B, concurrency int16) {
 	})
 	data, _ := json.Marshal(factory.RD)
 	// TODO: figure out how to balance created jobs vs. benchmark runtime.
-	for j := 0; j < 10000; j++ {
+	for j := 0; j < 100; j++ {
 		factory.CreateQueuedJobOnly(b, job.Name, data)
 	}
 	w := &ChannelProcessor{
-		Ch: make(chan struct{}, 1000),
+		Ch: make(chan struct{}, 10),
 	}
 	b.ResetTimer()
 	b.ReportAllocs()

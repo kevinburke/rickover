@@ -41,3 +41,50 @@ Dequeue/Dequeue64-8        618 ± 0%
 Dequeue/Dequeue128-8       647 ± 0%
 pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
 Enqueue-8                  133 ± 0%
+
+Using old acquire job strategy:
+
+go list ./... | grep -v vendor | xargs go test -p=1 -benchtime=2s -bench=. -run='^$' 2>&1 | /Users/kevin/bin/benchstat /dev/stdin
+name                  time/op
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8      4.23ms ± 0%
+Dequeue/Dequeue4-8      1.65ms ± 0%
+Dequeue/Dequeue8-8      1.88ms ± 0%
+Dequeue/Dequeue16-8     1.73ms ± 0%
+Dequeue/Dequeue64-8     1.87ms ± 0%
+Dequeue/Dequeue128-8    1.99ms ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8                165µs ± 0%
+
+name                  speed
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8     240kB/s ± 0%
+Dequeue/Dequeue4-8     610kB/s ± 0%
+Dequeue/Dequeue8-8     530kB/s ± 0%
+Dequeue/Dequeue16-8    580kB/s ± 0%
+Dequeue/Dequeue64-8    530kB/s ± 0%
+Dequeue/Dequeue128-8   500kB/s ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8             1.78MB/s ± 0%
+
+name                  alloc/op
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8      4.73kB ± 0%
+Dequeue/Dequeue4-8      4.70kB ± 0%
+Dequeue/Dequeue8-8      4.69kB ± 0%
+Dequeue/Dequeue16-8     4.88kB ± 0%
+Dequeue/Dequeue64-8     5.09kB ± 0%
+Dequeue/Dequeue128-8    5.45kB ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8               8.52kB ± 0%
+
+name                  allocs/op
+pkg:github.com/kevinburke/rickover/test/dequeuer goos:darwin goarch:amd64
+Dequeue/Dequeue1-8        67.0 ± 0%
+Dequeue/Dequeue4-8        67.0 ± 0%
+Dequeue/Dequeue8-8        67.0 ± 0%
+Dequeue/Dequeue16-8       70.0 ± 0%
+Dequeue/Dequeue64-8       73.0 ± 0%
+Dequeue/Dequeue128-8      78.0 ± 0%
+pkg:github.com/kevinburke/rickover/test/server goos:darwin goarch:amd64
+Enqueue-8                  133 ± 0%

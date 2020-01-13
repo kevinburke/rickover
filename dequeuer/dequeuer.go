@@ -3,6 +3,7 @@ package dequeuer
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kevinburke/go-dberror"
 	metrics "github.com/kevinburke/go-simple-metrics"
+	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -184,7 +186,17 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	failedAcquireCount := uint32(0)
 	waitDuration := time.Duration(0)
+	var tx *sql.Tx
 	for {
+		if tx == nil {
+			var err error
+			tx, err = db.Conn.BeginTx(context.TODO(), nil)
+			if err != nil {
+				log.Printf("worker: Error getting tx: %v", err)
+			}
+			time.Sleep(3 * time.Second)
+			continue
+		}
 		select {
 		case <-d.QuitChan:
 			log.Printf("%s worker %d quitting\n", name, d.ID)
@@ -192,7 +204,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 
 		case <-time.After(waitDuration):
 			start := time.Now()
-			qj, err := queued_jobs.Acquire(name)
+			qj, err := queued_jobs.Acquire(tx, name)
 			go metrics.Time("acquire.latency", time.Since(start))
 			if err == nil {
 				failedAcquireCount = 0
@@ -204,9 +216,11 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 				} else {
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))
 				}
+				tx = nil
 			} else {
 				dberr, ok := err.(*dberror.Error)
-				if ok && dberr.Code == dberror.CodeLockNotAvailable {
+				if err == sql.ErrNoRows || (ok && dberr.Code == dberror.CodeLockNotAvailable) {
+					fmt.Println("miss", 0)
 					// SELECT 1 returned a record but another thread
 					// got it. Don't sleep at all.
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.nowait", name))
@@ -217,6 +231,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 
 				failedAcquireCount++
 				waitDuration = d.W.Sleep(failedAcquireCount)
+				fmt.Println("miss", waitDuration)
 			}
 		}
 	}
