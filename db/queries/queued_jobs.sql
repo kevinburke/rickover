@@ -32,10 +32,9 @@ WITH queued_job_id as (
     WHERE status = 'queued'
     AND queued_jobs.name = $1
     AND run_after <= now()
-    ORDER BY created_at ASC
     LIMIT 1
 )
-SELECT queued_jobs.*
+SELECT id
 FROM queued_jobs
 INNER JOIN queued_job_id ON queued_jobs.id = queued_job_id.inner_id
 WHERE id = queued_job_id.inner_id

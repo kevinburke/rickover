@@ -17,6 +17,7 @@ import (
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
+	"github.com/kevinburke/semaphore"
 )
 
 func TestAll(t *testing.T) {
@@ -174,9 +175,18 @@ func runDQBench(b *testing.B, concurrency int16) {
 		Attempts:         1,
 	})
 	data, _ := json.Marshal(factory.RD)
-	// TODO: figure out how to balance created jobs vs. benchmark runtime.
-	for j := 0; j < 10000; j++ {
-		factory.CreateQueuedJobOnly(b, job.Name, data)
+	sem := semaphore.New(16)
+	// Idea here is basically to insert enough jobs that the dequeuer always has
+	// work to do, no matter how long the benchmark takes to run.
+	for j := 0; j < 50000; j++ {
+		sem.Acquire()
+		go func() {
+			factory.CreateQueuedJobOnly(b, job.Name, data)
+			sem.Release()
+		}()
+	}
+	for sem.Available() != sem.Len() {
+		time.Sleep(1 * time.Millisecond)
 	}
 	w := &ChannelProcessor{
 		Ch: make(chan struct{}, 1000),

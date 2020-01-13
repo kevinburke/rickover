@@ -114,7 +114,7 @@ func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
 	return nil
 }
 
-var useOldMethod = true
+var useOldMethod = false
 
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
@@ -134,21 +134,21 @@ func Acquire(name string) (*newmodels.QueuedJob, error) {
 	}
 	qs := newmodels.DB.WithTx(tx)
 
-	qj, err := qs.AcquireJob(context.TODO(), name)
+	qjid, err := qs.AcquireJob(context.TODO(), name)
 	if err != nil {
 		tx.Rollback()
 		err = dberror.GetError(err)
 		return nil, err
 	}
-	qj2, err := qs.MarkInProgress(context.TODO(), qj.ID)
+	qj, err := qs.MarkInProgress(context.TODO(), qjid)
 	if err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	qj2.ID.Prefix = Prefix
-	return &qj2, nil
+	qj.ID.Prefix = Prefix
+	return &qj, nil
 }
 
 // Decrement decrements the attempts counter for an existing job, and sets

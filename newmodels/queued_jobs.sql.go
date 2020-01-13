@@ -19,32 +19,20 @@ WITH queued_job_id as (
     WHERE status = 'queued'
     AND queued_jobs.name = $1
     AND run_after <= now()
-    ORDER BY created_at ASC
     LIMIT 1
 )
-SELECT queued_jobs.id, queued_jobs.name, queued_jobs.attempts, queued_jobs.run_after, queued_jobs.expires_at, queued_jobs.created_at, queued_jobs.updated_at, queued_jobs.status, queued_jobs.data, queued_jobs.auto_id
+SELECT id
 FROM queued_jobs
 INNER JOIN queued_job_id ON queued_jobs.id = queued_job_id.inner_id
 WHERE id = queued_job_id.inner_id
 AND pg_try_advisory_lock(queued_job_id.hash_key)
 `
 
-func (q *Queries) AcquireJob(ctx context.Context, name string) (QueuedJob, error) {
+func (q *Queries) AcquireJob(ctx context.Context, name string) (types.PrefixUUID, error) {
 	row := q.db.QueryRowContext(ctx, acquireJob, name)
-	var i QueuedJob
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Attempts,
-		&i.RunAfter,
-		&i.ExpiresAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Status,
-		&i.Data,
-		&i.AutoID,
-	)
-	return i, err
+	var id types.PrefixUUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const countReadyAndAll = `-- name: CountReadyAndAll :one
