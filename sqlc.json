@@ -4,7 +4,7 @@
         {
             "name": "newmodels",
             "emit_json_tags": true,
-            "emit_prepared_queries": false,
+            "emit_prepared_queries": true,
             "emit_interface": false,
             "path": "newmodels",
             "queries": "./db/queries/",

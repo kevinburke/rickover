@@ -271,7 +271,7 @@ func createJob() http.Handler {
 			Attempts:         jr.Attempts,
 		}
 		start := time.Now()
-		job, err := jobs.Create(&newmodels.CreateJobParams{
+		job, err := jobs.Create(newmodels.CreateJobParams{
 			Name:             jobData.Name,
 			DeliveryStrategy: jobData.DeliveryStrategy,
 			Concurrency:      jobData.Concurrency,
@@ -457,7 +457,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := jobIdRoute.FindStringSubmatch(r.URL.Path)[1]
-	queuedJob, err := queued_jobs.Enqueue(&newmodels.EnqueueJobParams{
+	queuedJob, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
 		ID: id, Name: name, RunAfter: ejr.RunAfter.Time,
 		ExpiresAt: ejr.ExpiresAt, Data: ejr.Data,
 	})

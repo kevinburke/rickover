@@ -24,8 +24,8 @@ type CreateJobParams struct {
 	Concurrency      int16            `json:"concurrency"`
 }
 
-func (q *Queries) CreateJob(ctx context.Context, arg *CreateJobParams) (Job, error) {
-	row := q.db.QueryRowContext(ctx, createJob,
+func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, error) {
+	row := q.queryRow(ctx, q.createJobStmt, createJob,
 		arg.Name,
 		arg.DeliveryStrategy,
 		arg.Attempts,
@@ -48,7 +48,7 @@ SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id FROM 
 `
 
 func (q *Queries) GetAllJobs(ctx context.Context) ([]Job, error) {
-	rows, err := q.db.QueryContext(ctx, getAllJobs)
+	rows, err := q.query(ctx, q.getAllJobsStmt, getAllJobs)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ WHERE name = $1
 `
 
 func (q *Queries) GetJob(ctx context.Context, name string) (Job, error) {
-	row := q.db.QueryRowContext(ctx, getJob, name)
+	row := q.queryRow(ctx, q.getJobStmt, getJob, name)
 	var i Job
 	err := row.Scan(
 		&i.Name,

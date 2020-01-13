@@ -26,7 +26,7 @@ type CreateArchivedJobParams struct {
 }
 
 func (q *Queries) CreateArchivedJob(ctx context.Context, arg CreateArchivedJobParams) (ArchivedJob, error) {
-	row := q.db.QueryRowContext(ctx, createArchivedJob,
+	row := q.queryRow(ctx, q.createArchivedJobStmt, createArchivedJob,
 		arg.ID,
 		arg.Name,
 		arg.Status,
@@ -53,7 +53,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetArchivedJob(ctx context.Context, id types.PrefixUUID) (ArchivedJob, error) {
-	row := q.db.QueryRowContext(ctx, getArchivedJob, id)
+	row := q.queryRow(ctx, q.getArchivedJobStmt, getArchivedJob, id)
 	var i ArchivedJob
 	err := row.Scan(
 		&i.ID,

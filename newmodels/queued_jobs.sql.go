@@ -29,7 +29,7 @@ AND pg_try_advisory_lock(queued_job_id.hash_key)
 `
 
 func (q *Queries) AcquireJob(ctx context.Context, name string) (types.PrefixUUID, error) {
-	row := q.db.QueryRowContext(ctx, acquireJob, name)
+	row := q.queryRow(ctx, q.acquireJobStmt, acquireJob, name)
 	var id types.PrefixUUID
 	err := row.Scan(&id)
 	return id, err
@@ -51,7 +51,7 @@ type CountReadyAndAllRow struct {
 }
 
 func (q *Queries) CountReadyAndAll(ctx context.Context) (CountReadyAndAllRow, error) {
-	row := q.db.QueryRowContext(ctx, countReadyAndAll)
+	row := q.queryRow(ctx, q.countReadyAndAllStmt, countReadyAndAll)
 	var i CountReadyAndAllRow
 	err := row.Scan(&i.All, &i.Ready)
 	return i, err
@@ -75,7 +75,7 @@ type DecrementQueuedJobParams struct {
 }
 
 func (q *Queries) DecrementQueuedJob(ctx context.Context, arg DecrementQueuedJobParams) (QueuedJob, error) {
-	row := q.db.QueryRowContext(ctx, decrementQueuedJob, arg.ID, arg.Attempts, arg.RunAfter)
+	row := q.queryRow(ctx, q.decrementQueuedJobStmt, decrementQueuedJob, arg.ID, arg.Attempts, arg.RunAfter)
 	var i QueuedJob
 	err := row.Scan(
 		&i.ID,
@@ -99,7 +99,7 @@ RETURNING id as rows_deleted
 `
 
 func (q *Queries) DeleteQueuedJob(ctx context.Context, id types.PrefixUUID) ([]types.PrefixUUID, error) {
-	rows, err := q.db.QueryContext(ctx, deleteQueuedJob, id)
+	rows, err := q.query(ctx, q.deleteQueuedJobStmt, deleteQueuedJob, id)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +146,8 @@ type EnqueueJobParams struct {
 	Data      json.RawMessage  `json:"data"`
 }
 
-func (q *Queries) EnqueueJob(ctx context.Context, arg *EnqueueJobParams) (QueuedJob, error) {
-	row := q.db.QueryRowContext(ctx, enqueueJob,
+func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (QueuedJob, error) {
+	row := q.queryRow(ctx, q.enqueueJobStmt, enqueueJob,
 		arg.ID,
 		arg.Name,
 		arg.RunAfter,
@@ -179,7 +179,7 @@ LIMIT 100
 `
 
 func (q *Queries) GetOldInProgressJobs(ctx context.Context, updatedAt time.Time) ([]QueuedJob, error) {
-	rows, err := q.db.QueryContext(ctx, getOldInProgressJobs, updatedAt)
+	rows, err := q.query(ctx, q.getOldInProgressJobsStmt, getOldInProgressJobs, updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ type GetQueuedCountsByStatusRow struct {
 }
 
 func (q *Queries) GetQueuedCountsByStatus(ctx context.Context, status JobStatus) ([]GetQueuedCountsByStatusRow, error) {
-	rows, err := q.db.QueryContext(ctx, getQueuedCountsByStatus, status)
+	rows, err := q.query(ctx, q.getQueuedCountsByStatusStmt, getQueuedCountsByStatus, status)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetQueuedJob(ctx context.Context, id types.PrefixUUID) (QueuedJob, error) {
-	row := q.db.QueryRowContext(ctx, getQueuedJob, id)
+	row := q.queryRow(ctx, q.getQueuedJobStmt, getQueuedJob, id)
 	var i QueuedJob
 	err := row.Scan(
 		&i.ID,
@@ -280,7 +280,7 @@ RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, sta
 `
 
 func (q *Queries) MarkInProgress(ctx context.Context, id types.PrefixUUID) (QueuedJob, error) {
-	row := q.db.QueryRowContext(ctx, markInProgress, id)
+	row := q.queryRow(ctx, q.markInProgressStmt, markInProgress, id)
 	var i QueuedJob
 	err := row.Scan(
 		&i.ID,
@@ -318,7 +318,7 @@ RETURNING queued_jobs.id, queued_jobs.name, queued_jobs.attempts, queued_jobs.ru
 `
 
 func (q *Queries) OldAcquireJob(ctx context.Context, name string) (QueuedJob, error) {
-	row := q.db.QueryRowContext(ctx, oldAcquireJob, name)
+	row := q.queryRow(ctx, q.oldAcquireJobStmt, oldAcquireJob, name)
 	var i QueuedJob
 	err := row.Scan(
 		&i.ID,

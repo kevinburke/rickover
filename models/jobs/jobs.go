@@ -16,7 +16,7 @@ func init() {
 	dberror.RegisterConstraint(attemptsConstraint)
 }
 
-func Create(params *newmodels.CreateJobParams) (*newmodels.Job, error) {
+func Create(params newmodels.CreateJobParams) (*newmodels.Job, error) {
 	job, err := newmodels.DB.CreateJob(context.Background(), params)
 	if err != nil {
 		err = dberror.GetError(err)
