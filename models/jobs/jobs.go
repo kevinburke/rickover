@@ -4,13 +4,10 @@ package jobs
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"fmt"
 	"time"
 
 	dberror "github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/rickover/models"
-	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/lib/pq"
 )
@@ -18,45 +15,6 @@ import (
 func init() {
 	dberror.RegisterConstraint(concurrencyConstraint)
 	dberror.RegisterConstraint(attemptsConstraint)
-}
-
-var insertJobStmt *sql.Stmt
-var getJobStmt *sql.Stmt
-var getAllJobStmt *sql.Stmt
-
-// Setup prepares all database queries in this package.
-func Setup() (err error) {
-	if !db.Connected() {
-		return errors.New("jobs: no database connection, bailing")
-	}
-
-	if insertJobStmt != nil {
-		return
-	}
-
-	insertJobStmt, err = db.Conn.Prepare(fmt.Sprintf(`-- jobs.Create
-INSERT INTO jobs (%s) VALUES ($1, $2, $3, $4) RETURNING %s`,
-		fields(false), fields(true)))
-	if err != nil {
-		return err
-	}
-
-	getJobStmt, err = db.Conn.Prepare(fmt.Sprintf(`-- jobs.Get
-SELECT %s
-FROM jobs
-WHERE name = $1`, fields(true)))
-	if err != nil {
-		return err
-	}
-
-	getAllJobStmt, err = db.Conn.Prepare(fmt.Sprintf(`-- jobs.Get
-SELECT %s
-FROM jobs`, fields(true)))
-	if err != nil {
-		return err
-	}
-
-	return
 }
 
 func Create(job newmodels.Job) (*newmodels.Job, error) {

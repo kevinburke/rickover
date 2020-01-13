@@ -44,6 +44,9 @@ func Create(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus
 // not present.
 func Get(id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
 	aj, err := newmodels.DB.GetArchivedJob(context.Background(), id)
+	if err == sql.ErrNoRows {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, dberror.GetError(err)
 	}
