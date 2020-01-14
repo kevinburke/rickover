@@ -1,9 +1,9 @@
 package test_queued_jobs
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
-	"sync"
 	"testing"
 	"time"
 
@@ -233,30 +233,33 @@ func testAcquireReturnsCorrectValues(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 
-	gotQj, err := queued_jobs.Acquire(job.Name)
+	gotQj, err := queued_jobs.Acquire(context.TODO(), job.Name, 1)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, gotQj.ID.String(), qj.ID.String())
 	test.AssertEquals(t, gotQj.Status, newmodels.JobStatusInProgress)
 }
 
 func TestAcquireTwoThreads(t *testing.T) {
-	var wg sync.WaitGroup
+	test.SetUp(t)
 	defer test.TearDown(t)
 	factory.CreateQueuedJob(t, factory.EmptyData)
 
-	wg.Add(2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var err1, err2 error
 	var gotQj1, gotQj2 *newmodels.QueuedJob
+	resultCh := make(chan struct{}, 1)
 	go func() {
-		gotQj1, err1 = queued_jobs.Acquire(sampleJob.Name)
-		wg.Done()
+		gotQj1, err1 = queued_jobs.Acquire(ctx, sampleJob.Name, 1)
+		resultCh <- struct{}{}
 	}()
 	go func() {
-		gotQj2, err2 = queued_jobs.Acquire(sampleJob.Name)
-		wg.Done()
+		gotQj2, err2 = queued_jobs.Acquire(ctx, sampleJob.Name, 1)
+		resultCh <- struct{}{}
 	}()
 
-	wg.Wait()
+	<-resultCh
+	<-resultCh
 	test.Assert(t, err1 == sql.ErrNoRows || err2 == sql.ErrNoRows, "expected one error to be ErrNoRows")
 	test.Assert(t, gotQj1 != nil || gotQj2 != nil, "expected one job to be acquired")
 }
@@ -272,7 +275,7 @@ func TestAcquireDoesntGetFutureJob(t *testing.T) {
 	runAfter := time.Now().UTC().Add(20 * time.Millisecond)
 	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
-	_, err = queued_jobs.Acquire(qj.Name)
+	_, err = queued_jobs.Acquire(context.TODO(), qj.Name, 1)
 	test.AssertEquals(t, err, sql.ErrNoRows)
 }
 
@@ -287,11 +290,11 @@ func TestAcquireDoesntGetInProgressJob(t *testing.T) {
 	runAfter := time.Now().UTC()
 	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
-	qj, err = queued_jobs.Acquire(qj.Name)
+	qj, err = queued_jobs.Acquire(context.TODO(), qj.Name, 1)
 	test.AssertNotError(t, err, "")
 	test.AssertDeepEquals(t, qj.ID, factory.JobId)
 
-	_, err = queued_jobs.Acquire(qj.Name)
+	_, err = queued_jobs.Acquire(context.TODO(), qj.Name, 1)
 	test.AssertEquals(t, err, sql.ErrNoRows)
 }
 
@@ -345,9 +348,9 @@ func TestOldInProgress(t *testing.T) {
 	defer test.TearDown(t)
 	_, qj1 := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 	_, qj2 := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	_, err := queued_jobs.Acquire(qj1.Name)
+	_, err := queued_jobs.Acquire(context.TODO(), qj1.Name, 1)
 	test.AssertNotError(t, err, "")
-	_, err = queued_jobs.Acquire(qj2.Name)
+	_, err = queued_jobs.Acquire(context.TODO(), qj2.Name, 1)
 	test.AssertNotError(t, err, "")
 	jobs, err := queued_jobs.GetOldInProgressJobs(time.Now().UTC().Add(40 * time.Millisecond))
 	test.AssertNotError(t, err, "")

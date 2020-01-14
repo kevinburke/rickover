@@ -127,24 +127,23 @@ var useRecursiveMethod = true
 // Acquire a queued job with the given name that's able to run now. Returns
 // the queued job and a boolean indicating whether the SELECT query found
 // a row, or a generic error/sql.ErrNoRows if no jobs are available.
-func Acquire(name string, workerID int) (*newmodels.QueuedJob, error) {
+func Acquire(ctx context.Context, name string, workerID int) (*newmodels.QueuedJob, error) {
 	if useOldMethod {
-		qj, err := newmodels.DB.OldAcquireJob(context.TODO(), name)
+		qj, err := newmodels.DB.OldAcquireJob(ctx, name)
 		if err != nil {
 			return nil, err
 		}
 		qj.ID.Prefix = Prefix
 		return &qj, nil
 	}
-	tx, err := db.Conn.BeginTx(context.TODO(), nil)
+	tx, err := db.Conn.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	qs := newmodels.DB.WithTx(tx)
-	var qjid types.PrefixUUID
-	var autoid int64
 	if useRecursiveMethod {
-		err = tx.QueryRow(`
+		var i newmodels.QueuedJob
+		err = tx.QueryRowContext(ctx, `
 WITH RECURSIVE lock_candidates (n) AS (
     -- Pick a bunch of candidate jobs from the database
     SELECT * FROM (
@@ -189,37 +188,50 @@ WITH RECURSIVE lock_candidates (n) AS (
 UPDATE queued_jobs
 SET status = 'in-progress', updated_at = now()
 WHERE id = (SELECT id FROM lock_candidates where locked_row_id > 0 LIMIT 1)
-RETURNING id, auto_id
--- SELECT id FROM lock_candidates where locked_row_id > 0 LIMIT 1
-`, name).Scan(&qjid, &autoid)
-		if err != nil {
-			fmt.Printf("worker %d, name %q caught error: %#v\n", workerID, name, err)
-			tx.Rollback()
-			err = dberror.GetError(err)
-			return nil, err
-		}
-	} else {
-		for i := 0; i < 5; i++ {
-			qjid, err = qs.AcquireJob(context.TODO(), name)
-			if err != sql.ErrNoRows {
-				break
-			}
-		}
+RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, status, data, auto_id
+`, name).Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.RunAfter,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Status,
+			&i.Data,
+			&i.AutoID,
+		)
 		if err != nil {
 			tx.Rollback()
 			err = dberror.GetError(err)
 			return nil, err
 		}
-		qj, err := qs.MarkInProgress(context.TODO(), qjid)
-		if err != nil {
+		if err := tx.Commit(); err != nil {
 			return nil, err
 		}
-		_ = qj
+		i.ID.Prefix = Prefix
+		return &i, nil
+	}
+	var qjid types.PrefixUUID
+	for i := 0; i < 5; i++ {
+		qjid, err = qs.AcquireJob(ctx, name)
+		if err != sql.ErrNoRows {
+			break
+		}
+	}
+	if err != nil {
+		tx.Rollback()
+		err = dberror.GetError(err)
+		return nil, err
+	}
+	qj, err := qs.MarkInProgress(ctx, qjid)
+	if err != nil {
+		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	//qj.ID.Prefix = Prefix
+	qj.ID.Prefix = Prefix
 	return &newmodels.QueuedJob{ID: qjid}, nil
 }
 

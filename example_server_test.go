@@ -6,13 +6,14 @@
 package rickover
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/gorilla/handlers"
-	"github.com/kevinburke/go-simple-metrics"
+	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/server"
@@ -36,7 +37,7 @@ func init() {
 }
 
 func Example_server() {
-	if err := setup.DB(db.DefaultConnection, serverDbConns); err != nil {
+	if err := setup.DB(context.TODO(), db.DefaultConnection, serverDbConns); err != nil {
 		log.Fatal(err)
 	}
 
