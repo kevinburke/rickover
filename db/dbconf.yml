@@ -4,7 +4,7 @@ development:
 
 test:
     driver: postgres
-    open: user=rickover dbname=rickover_test sslmode=disable
+    open: user=rickover password=rickover dbname=rickover_test sslmode=disable
 
 circle:
     driver: postgres

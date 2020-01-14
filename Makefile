@@ -25,9 +25,10 @@ $(STATICCHECK):
 	go get -u honnef.co/go/tools/cmd/staticcheck
 
 test-install:
-	-createuser rickover --superuser --createrole --createdb --inherit
-	-createdb rickover --owner=rickover
-	-createdb rickover_test --owner=rickover
+	#@ TODO not sure we use this anymore.
+	-createuser rickover --host localhost --superuser --createrole --createdb --inherit -U postgres
+	-createdb rickover --host localhost --owner=rickover -U postgres
+	-createdb rickover_test --host localhost --owner=rickover -U postgres
 
 lint: | $(STATICCHECK)
 	go list ./... | grep -v vendor | xargs go vet
@@ -76,8 +77,14 @@ migrate: | $(GOOSE)
 	$(GOOSE) --env=development up
 	$(GOOSE) --env=test up
 
+migrate-ci:
+	/usr/bin/pg_ctlcluster --skip-systemctl-redirect 11-main start
+	sudo -u postgres psql -f ./bin/migrate
+	go get github.com/kevinburke/goose/cmd/goose
+	goose --env=test up
+
 $(BENCHSTAT):
 	go get -u golang.org/x/perf/cmd/benchstat
 
 bench: | $(BENCHSTAT)
-	go list ./... | grep -v vendor | xargs go test -p=1 -benchtime=2s -bench=. -run='^$$' 2>&1 | $(BENCHSTAT) /dev/stdin
+	go test -p=1 -benchtime=2s -bench=. -run='^$$' 2>&1 | $(BENCHSTAT) /dev/stdin
