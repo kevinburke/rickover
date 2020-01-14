@@ -1,1 +1,1 @@
-postgres://rickover:rickover@localhost:5432/rickover_test?sslmode=disable&timezone=UTC
+postgres://rickover:rickover@localhost:5432/rickover_test?sslmode=disable

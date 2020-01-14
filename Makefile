@@ -78,11 +78,16 @@ migrate: | $(GOOSE)
 migrate-ci:
 	/usr/bin/pg_ctlcluster --skip-systemctl-redirect 11-main start
 	sudo -u postgres psql -f ./bin/migrate
+	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
 	go get github.com/kevinburke/goose/cmd/goose
 	goose --env=test up
 
 $(BENCHSTAT):
 	go get -u golang.org/x/perf/cmd/benchstat
+
+benchmark-ci:
+	go run ./test/cmd/populate-queued-jobs/main.go
+	go test -bench=. -run='^$$' -v ./...
 
 bench: | $(BENCHSTAT)
 	go test -p=1 -benchtime=2s -bench=. -run='^$$' ./... 2>&1 | $(BENCHSTAT) /dev/stdin
