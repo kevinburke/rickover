@@ -1,4 +1,4 @@
-## Version 1.0
+## Version 2.0
 
 - Requests without Basic Auth credentials will only receive a 401 if the
 Authorizer returns an error.
