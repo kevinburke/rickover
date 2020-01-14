@@ -52,6 +52,69 @@ INNER JOIN queued_job_id ON queued_jobs.id = queued_job_id.inner_id
 WHERE id = queued_job_id.inner_id
 AND pg_try_advisory_lock(queued_job_id.hash_key);
 
+
+-- name: OldAcquireJob :one
+WITH queued_job as (
+	SELECT id AS inner_id
+	FROM queued_jobs
+	WHERE status='queued'
+		AND queued_jobs.name = $1
+		AND run_after <= now()
+	ORDER BY id
+	LIMIT 1
+	FOR UPDATE
+)
+UPDATE queued_jobs
+SET status='in-progress',
+	updated_at=now()
+FROM queued_job
+WHERE queued_jobs.id = queued_job.inner_id
+	AND status='queued'
+RETURNING queued_jobs.*;
+
+-- name: MarkInProgress :one
+UPDATE queued_jobs
+SET status = 'in-progress',
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: GetQueuedCountsByStatus :many
+SELECT name, count(*)
+FROM queued_jobs
+WHERE status = $1
+GROUP BY name;
+
+-- name: GetOldInProgressJobs :many
+SELECT *
+FROM queued_jobs
+WHERE status = 'in-progress'
+AND updated_at < $1
+LIMIT 100;
+
+-- name: DecrementQueuedJob :one
+UPDATE queued_jobs
+SET status = 'queued',
+	updated_at = now(),
+	attempts = attempts - 1,
+	run_after = $3
+WHERE id = $1
+	AND attempts=$2
+	RETURNING *;
+
+-- name: CountReadyAndAll :one
+WITH all_count AS (
+	SELECT count(*) FROM queued_jobs
+), ready_count AS (
+	SELECT count(*) FROM queued_jobs WHERE run_after <= now()
+)
+SELECT all_count.count as all, ready_count.count as ready
+FROM all_count, ready_count;
+
+-- name: DeleteAllQueuedJobs :execrows
+DELETE FROM queued_jobs;
+
+
 --
 -- _name: AcquireJob2 :one
 -- WITH queued_job_id as (
@@ -115,65 +178,3 @@ AND pg_try_advisory_lock(queued_job_id.hash_key);
   -- )
 -- )
 -- SELECT * FROM lock_candidates where locked_row_id > 0 LIMIT 1;
-
-
--- name: OldAcquireJob :one
-WITH queued_job as (
-	SELECT id AS inner_id
-	FROM queued_jobs
-	WHERE status='queued'
-		AND queued_jobs.name = $1
-		AND run_after <= now()
-	ORDER BY created_at ASC
-	LIMIT 1
-	FOR UPDATE SKIP LOCKED
-)
-UPDATE queued_jobs
-SET status='in-progress',
-	updated_at=now()
-FROM queued_job
-WHERE queued_jobs.id = queued_job.inner_id
-	AND status='queued'
-RETURNING queued_jobs.*;
-
--- name: MarkInProgress :one
-UPDATE queued_jobs
-SET status = 'in-progress',
-    updated_at = now()
-WHERE id = $1
-RETURNING *;
-
--- name: GetQueuedCountsByStatus :many
-SELECT name, count(*)
-FROM queued_jobs
-WHERE status = $1
-GROUP BY name;
-
--- name: GetOldInProgressJobs :many
-SELECT *
-FROM queued_jobs
-WHERE status = 'in-progress'
-AND updated_at < $1
-LIMIT 100;
-
--- name: DecrementQueuedJob :one
-UPDATE queued_jobs
-SET status = 'queued',
-	updated_at = now(),
-	attempts = attempts - 1,
-	run_after = $3
-WHERE id = $1
-	AND attempts=$2
-	RETURNING *;
-
--- name: CountReadyAndAll :one
-WITH all_count AS (
-	SELECT count(*) FROM queued_jobs
-), ready_count AS (
-	SELECT count(*) FROM queued_jobs WHERE run_after <= now()
-)
-SELECT all_count.count as all, ready_count.count as ready
-FROM all_count, ready_count;
-
--- name: DeleteAllQueuedJobs :execrows
-DELETE FROM queued_jobs;
