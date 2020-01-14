@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rickover/models"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -281,7 +280,7 @@ func Test202DuplicateEnqueue(t *testing.T) {
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w2, req)
 	test.AssertEquals(t, w2.Code, http.StatusAccepted)
-	var j models.QueuedJob
+	var j newmodels.QueuedJob
 	err := json.NewDecoder(w.Body).Decode(&j)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, j.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
