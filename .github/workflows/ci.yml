@@ -33,7 +33,7 @@ jobs:
       working-directory: ./src/github.com/kevinburke/rickover
 
     - name: Test rickover
-      run: envdir envs/github go test -v ./...
+      run: envdir envs/github go test -p 1 -timeout 10s -v ./...
       working-directory: ./src/github.com/kevinburke/rickover
 
     - name: Run benchmarks

@@ -31,7 +31,7 @@ test-install:
 	-createdb rickover_test --host localhost --owner=rickover -U postgres
 
 lint: | $(STATICCHECK)
-	go list ./... | grep -v vendor | xargs go vet
+	go vet ./...
 	$(STATICCHECK) ./...
 
 build:
@@ -44,10 +44,10 @@ docs: | $(GODOCDOC)
 	$(GODOCDOC)
 
 testonly:
-	@DATABASE_URL=$(TEST_DATABASE_URL) go list ./... | grep -v vendor | xargs go test -p=1 -timeout 10s
+	@DATABASE_URL=$(TEST_DATABASE_URL) go test -p=1 -timeout 10s ./...
 
 race-testonly:
-	DATABASE_URL=$(TEST_DATABASE_URL) go list ./... | grep -v vendor | xargs go test -p=1 -race -timeout 10s
+	DATABASE_URL=$(TEST_DATABASE_URL) go test -p=1 -race -timeout 10s ./...
 
 truncate-test: $(TRUNCATE_TABLES)
 	@DATABASE_URL=$(TEST_DATABASE_URL) $(TRUNCATE_TABLES)
@@ -87,4 +87,4 @@ $(BENCHSTAT):
 	go get -u golang.org/x/perf/cmd/benchstat
 
 bench: | $(BENCHSTAT)
-	go test -p=1 -benchtime=2s -bench=. -run='^$$' 2>&1 | $(BENCHSTAT) /dev/stdin
+	go test -p=1 -benchtime=2s -bench=. -run='^$$' ./... 2>&1 | $(BENCHSTAT) /dev/stdin
