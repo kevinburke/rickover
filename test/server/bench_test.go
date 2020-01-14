@@ -23,6 +23,7 @@ func BenchmarkEnqueue(b *testing.B) {
 	}
 	buf := new(bytes.Buffer)
 	json.NewEncoder(buf).Encode(ejr)
+	b.SetBytes(int64(buf.Len()))
 	bits := buf.Bytes()
 	factory.CreateJob(b, factory.SampleJob)
 	b.ResetTimer()
@@ -33,7 +34,6 @@ func BenchmarkEnqueue(b *testing.B) {
 			req.SetBasicAuth("test", testPassword)
 			w := httptest.NewRecorder()
 			server.DefaultServer.ServeHTTP(w, req)
-			b.SetBytes(int64(w.Body.Len()))
 			if w.Code != 202 {
 				b.Fatalf("incorrect Code: %d (response %s)", w.Code, w.Body.Bytes())
 			}

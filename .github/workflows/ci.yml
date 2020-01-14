@@ -1,0 +1,41 @@
+name: rickover test suite
+on: [push, pull_request]
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    container: meterup/ubuntu-golang
+
+    steps:
+    - uses: actions/checkout@master
+      with:
+         path: './src/github.com/kevinburke/rickover'
+    # staticcheck needs this for GOPATH
+    - run: echo "::set-env name=GOPATH::$GITHUB_WORKSPACE"
+    - run: echo "::set-env name=PATH::$GITHUB_WORKSPACE/bin:$PATH"
+
+    - uses: actions/cache@v1
+      with:
+        path: /go/bin
+        key: ${{ runner.os }}-gobin-v1-${{ hashFiles('**/Gopkg.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-gobin-v1-
+    - uses: actions/cache@v1
+      with:
+        path: /github/home/.cache
+        key: ${{ runner.os }}-go-v1-${{ hashFiles('**/Gopkg.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-go-v1-
+
+    - name: Start Postgres, install Goose, migrate database
+      run: envdir envs/github make migrate-ci
+      working-directory: ./src/github.com/kevinburke/rickover
+
+    - name: Test rickover
+      run: envdir envs/github go test -v ./...
+      working-directory: ./src/github.com/kevinburke/rickover
+
+    - name: Run benchmarks
+      run: envdir envs/github go test -bench=. -run='^$' -v ./...
+      working-directory: ./src/github.com/kevinburke/rickover
