@@ -58,6 +58,9 @@ var getJobTypeRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)$`)
 // Get returns a http.Handler with all routes initialized using the given
 // Authorizer.
 func Get(a Authorizer) http.Handler {
+	if a == nil {
+		panic("server: cannot call Get() with nil Authorizer")
+	}
 	h := new(RegexpHandler)
 
 	h.Handler(jobsRoute, []string{"POST"}, authHandler(createJob(), a))
@@ -91,7 +94,7 @@ func init() {
 func serverHeaderHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// hack, figure out how to put middleware on a subset of responses
-		if strings.Contains(r.URL.Path, "/debug/pprof") {
+		if strings.HasPrefix(r.URL.Path, "/debug/pprof") {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		} else if r.URL.Path == "/" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -125,12 +128,12 @@ func forbidNonTLSTrafficHandler(h http.Handler) http.Handler {
 func authHandler(h http.Handler, a Authorizer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userId, token, ok := r.BasicAuth()
-		if !ok {
-			authenticate(w, new401(r))
-			return
-		}
 		err := a.Authorize(userId, token)
 		if err != nil {
+			if !ok {
+				authenticate(w, new401(r))
+				return
+			}
 			metrics.Increment("auth.error")
 			handleAuthorizeError(w, r, err)
 			return

@@ -1,3 +1,13 @@
+## Version 1.0
+
+- Requests without Basic Auth credentials will only receive a 401 if the
+Authorizer returns an error.
+
+- Get with a nil Authorizer will panic.
+
+- Use `pg_advisory_xact_lock` to lock queued jobs before marking them as in
+progress, instead of selecting a row for update.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't

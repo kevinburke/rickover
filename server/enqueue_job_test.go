@@ -19,24 +19,6 @@ func newSSAServer() (*SharedSecretAuthorizer, http.Handler) {
 
 var empty = json.RawMessage([]byte("{}"))
 
-func Test401NoCredentials(t *testing.T) {
-	t.Parallel()
-	w := httptest.NewRecorder()
-	ejr := &EnqueueJobRequest{
-		Data: empty,
-	}
-	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(ejr)
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", b)
-	Get(u).ServeHTTP(w, req)
-	test.AssertEquals(t, w.Code, http.StatusUnauthorized)
-	var e rest.Error
-	err := json.Unmarshal(w.Body.Bytes(), &e)
-	test.AssertNotError(t, err, "")
-	test.AssertEquals(t, e.Title, "Unauthorized. Please include your API credentials")
-	test.AssertEquals(t, e.ID, "unauthorized")
-}
-
 func Test401UnknownUser(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
