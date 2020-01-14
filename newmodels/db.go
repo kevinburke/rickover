@@ -76,6 +76,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.oldAcquireJobStmt, err = db.PrepareContext(ctx, oldAcquireJob); err != nil {
 		return nil, fmt.Errorf("error preparing query OldAcquireJob: %w", err)
 	}
+	if q.truncateStmt, err = db.PrepareContext(ctx, truncate); err != nil {
+		return nil, fmt.Errorf("error preparing query Truncate: %w", err)
+	}
 	return &q, nil
 }
 
@@ -171,6 +174,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing oldAcquireJobStmt: %w", cerr)
 		}
 	}
+	if q.truncateStmt != nil {
+		if cerr := q.truncateStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing truncateStmt: %w", cerr)
+		}
+	}
 	return err
 }
 
@@ -228,6 +236,7 @@ type Queries struct {
 	getQueuedJobStmt            *sql.Stmt
 	markInProgressStmt          *sql.Stmt
 	oldAcquireJobStmt           *sql.Stmt
+	truncateStmt                *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -252,5 +261,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getQueuedJobStmt:            q.getQueuedJobStmt,
 		markInProgressStmt:          q.markInProgressStmt,
 		oldAcquireJobStmt:           q.oldAcquireJobStmt,
+		truncateStmt:                q.truncateStmt,
 	}
 }

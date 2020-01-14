@@ -348,7 +348,7 @@ WITH queued_job as (
 		AND run_after <= now()
 	ORDER BY id
 	LIMIT 1
-	FOR UPDATE SKIP LOCKED
+	FOR UPDATE
 )
 UPDATE queued_jobs
 SET status='in-progress',

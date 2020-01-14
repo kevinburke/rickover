@@ -27,10 +27,7 @@ func main() {
 	if err := setup.DB(ctx, db.DefaultConnection, 10); err != nil {
 		log.Fatal(err)
 	}
-	if _, err := newmodels.DB.DeleteAllQueuedJobs(context.Background()); err != nil {
-		log.Fatal(err)
-	}
-	if _, err := newmodels.DB.DeleteAllJobs(context.Background()); err != nil {
+	if err := newmodels.DB.Truncate(context.Background()); err != nil {
 		log.Fatal(err)
 	}
 	if *name == "" {
