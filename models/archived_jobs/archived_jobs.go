@@ -7,7 +7,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -32,7 +31,7 @@ func Create(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus
 		if err == sql.ErrNoRows {
 			return nil, queued_jobs.ErrNotFound
 		}
-		return nil, dberror.GetError(err)
+		return nil, err
 	}
 	aj.ID.Prefix = Prefix
 	return &aj, nil
@@ -46,7 +45,7 @@ func Get(id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, dberror.GetError(err)
+		return nil, err
 	}
 	aj.ID.Prefix = Prefix
 	return &aj, nil

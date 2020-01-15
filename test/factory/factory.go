@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
 	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/downstream"
@@ -17,6 +16,7 @@ import (
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
+	"github.com/lib/pq"
 )
 
 var EmptyData = json.RawMessage([]byte("{}"))
@@ -150,8 +150,8 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.
 	})
 	if err != nil {
 		switch dberr := err.(type) {
-		case *dberror.Error:
-			if dberr.Code == dberror.CodeUniqueViolation {
+		case *pq.Error:
+			if dberr.Code == "23505" {
 			} else {
 				test.AssertNotError(t, err, "")
 			}

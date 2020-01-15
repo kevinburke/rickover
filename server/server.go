@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
@@ -28,6 +27,7 @@ import (
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/setup"
+	"github.com/lib/pq"
 )
 
 // TODO(burke) use http.LimitedBytesReader.
@@ -312,7 +312,7 @@ func createJob() http.Handler {
 		go metrics.Time("type.create.latency", time.Since(start))
 		if err != nil {
 			switch terr := err.(type) {
-			case *dberror.Error:
+			case *pq.Error:
 				apierr := &rest.Error{
 					Title:    terr.Message,
 					ID:       "invalid_parameter",
@@ -516,8 +516,8 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				metrics.Increment("enqueue.error.already_archived")
 				return
 			}
-		case *dberror.Error:
-			if terr.Code == dberror.CodeUniqueViolation {
+		case *pq.Error:
+			if terr.Code == "23505" {
 				queuedJob, err = queued_jobs.Get(id)
 				if err != nil {
 					writeServerError(w, r, err)

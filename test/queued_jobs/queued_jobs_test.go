@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -15,6 +15,7 @@ import (
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
+	"github.com/lib/pq"
 )
 
 var empty = json.RawMessage([]byte("{}"))
@@ -85,10 +86,10 @@ func testEnqueueNoData(t *testing.T) {
 	})
 	test.AssertError(t, err, "")
 	switch terr := err.(type) {
-	case *dberror.Error:
-		test.AssertEquals(t, terr.Message, "Invalid input syntax for type json")
+	case *pq.Error:
+		test.AssertEquals(t, terr.Message, "invalid input syntax for type json")
 	default:
-		t.Fatalf("Expected a dberror, got %#v", terr)
+		t.Fatalf("Expected a pq.Error, got %#v", terr)
 	}
 }
 
@@ -116,14 +117,13 @@ func TestEnqueueJobExists(t *testing.T) {
 	_, err = queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	switch terr := err.(type) {
-	case *dberror.Error:
-		test.AssertEquals(t, terr.Code, dberror.CodeUniqueViolation)
-		test.AssertEquals(t, terr.Column, "id")
+	case *pq.Error:
+		test.AssertEquals(t, terr.Code, pq.ErrorCode("23505"))
 		test.AssertEquals(t, terr.Table, "queued_jobs")
 		test.AssertEquals(t, terr.Message,
-			"A id already exists with this value (6740b44e-13b9-475d-af06-979627e0e0d6)")
+			`duplicate key value violates unique constraint "queued_jobs_pkey"`)
 	default:
-		t.Fatalf("Expected a dberror, got %#v", terr)
+		t.Fatalf("Expected a pq.Error, got %#v", terr)
 	}
 }
 
@@ -260,7 +260,7 @@ func TestAcquireTwoThreads(t *testing.T) {
 
 	<-resultCh
 	<-resultCh
-	test.Assert(t, err1 == sql.ErrNoRows || err2 == sql.ErrNoRows, "expected one error to be ErrNoRows")
+	test.Assert(t, err1 == sql.ErrNoRows || err2 == sql.ErrNoRows, fmt.Sprintf("expected one error to be ErrNoRows, got %v %v", err1, err2))
 	test.Assert(t, gotQj1 != nil || gotQj2 != nil, "expected one job to be acquired")
 }
 

@@ -6,11 +6,9 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/archived_jobs"
@@ -61,9 +59,8 @@ func createAndDelete(id types.PrefixUUID, name string, status newmodels.Archived
 	_, err := archived_jobs.Create(id, name, status, attempt)
 	go metrics.Time("archived_job.create.latency", time.Since(start))
 	if err != nil {
-		switch derr := err.(type) {
-		case *dberror.Error:
-			if derr.Code == dberror.CodeUniqueViolation {
+		/*
+			case isUniqueViolation(): {
 				// Some other thread beat us to it. Don't return an error, just
 				// fall through and try to delete the record.
 				log.Printf("Could not create archived job %s with status %s because "+
@@ -71,9 +68,9 @@ func createAndDelete(id types.PrefixUUID, name string, status newmodels.Archived
 			} else {
 				return err
 			}
-		default:
-			return err
-		}
+			default:
+		*/
+		return err
 	}
 	start = time.Now()
 	err = queued_jobs.DeleteRetry(id, 3)

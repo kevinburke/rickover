@@ -25,14 +25,6 @@
   version = "v2.13"
 
 [[projects]]
-  digest = "1:058afcda3ddbe8ae0ab7ada503de1745c68edbf0bb9e6e536cb07e4d08c72376"
-  name = "github.com/kevinburke/go-dberror"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "dbd6c1eafbd0e04c4994b9c94cfb1d90c7727695"
-  version = "0.8"
-
-[[projects]]
   branch = "master"
   digest = "1:04d7cb83f88f60dda10244f770bd20e1816c296b1f485dc2fd49e8e9de638893"
   name = "github.com/kevinburke/go-debug"
@@ -162,7 +154,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/gorilla/handlers",
-    "github.com/kevinburke/go-dberror",
     "github.com/kevinburke/go-simple-metrics",
     "github.com/kevinburke/go-types",
     "github.com/kevinburke/go.uuid",

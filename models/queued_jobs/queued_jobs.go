@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/newmodels"
@@ -38,10 +37,8 @@ func (e *UnknownOrArchivedError) Error() string {
 var StuckJobLimit = 100
 
 // Enqueue creates a new queued job with the given ID and fields. A
-// dberror.Error will be returned if Postgres returns a constraint failure -
-// job exists, job name unknown, &c. A sql.ErrNoRows will be returned if the
-// `name` does not exist in the jobs table. Otherwise the QueuedJob will be
-// returned.
+// sql.ErrNoRows will be returned if the `name` does not exist in the jobs
+// table. Otherwise the QueuedJob will be returned.
 func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
 	qj, err := newmodels.DB.EnqueueJob(context.TODO(), params)
 	if err != nil {
@@ -51,7 +48,7 @@ func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
 			}
 			return nil, e
 		}
-		return nil, dberror.GetError(err)
+		return nil, err
 	}
 	qj.ID.Prefix = Prefix
 	return &qj, err
@@ -68,7 +65,7 @@ func EnqueueFast(params newmodels.EnqueueJobFastParams) error {
 		}
 		return e
 	}
-	return dberror.GetError(err)
+	return err
 }
 
 // Get the queued job with the given id. Returns the job, or an error. If no
@@ -79,7 +76,7 @@ func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, dberror.GetError(err)
+		return nil, err
 	}
 	qj.ID.Prefix = Prefix
 	return &qj, nil
@@ -203,7 +200,6 @@ RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, sta
 		)
 		if err != nil {
 			tx.Rollback()
-			err = dberror.GetError(err)
 			return nil, err
 		}
 		if err := tx.Commit(); err != nil {
@@ -221,7 +217,6 @@ RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, sta
 	}
 	if err != nil {
 		tx.Rollback()
-		err = dberror.GetError(err)
 		return nil, err
 	}
 	qj, err := qs.MarkInProgress(ctx, qjid)
@@ -249,7 +244,7 @@ func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmod
 		RunAfter: runAfter,
 	})
 	if err != nil {
-		return nil, dberror.GetError(err)
+		return nil, err
 	}
 	qj.ID.Prefix = Prefix
 	return &qj, nil
@@ -261,7 +256,7 @@ func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmod
 func GetOldInProgressJobs(olderThan time.Time) ([]newmodels.QueuedJob, error) {
 	jobs, err := newmodels.DB.GetOldInProgressJobs(context.Background(), olderThan)
 	if err != nil {
-		return nil, dberror.GetError(err)
+		return nil, err
 	}
 	for i := range jobs {
 		jobs[i].ID.Prefix = Prefix

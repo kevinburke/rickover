@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kevinburke/go-dberror"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
+	"github.com/lib/pq"
 )
 
 func TestAll(t *testing.T) {
@@ -59,14 +59,13 @@ func testArchivedJobFailsIfJobExists(t *testing.T) {
 	_, err = archived_jobs.Create(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertError(t, err, "expected error, got nil")
 	switch terr := err.(type) {
-	case *dberror.Error:
-		test.AssertEquals(t, terr.Code, dberror.CodeUniqueViolation)
-		test.AssertEquals(t, terr.Column, "id")
+	case *pq.Error:
+		test.AssertEquals(t, terr.Code, pq.ErrorCode("23505"))
 		test.AssertEquals(t, terr.Table, "archived_jobs")
 		test.AssertEquals(t, terr.Message,
-			fmt.Sprintf("A id already exists with this value (%s)", qj.ID.UUID.String()))
+			`duplicate key value violates unique constraint "archived_jobs_pkey"`)
 	default:
-		t.Fatalf("Expected a dberror, got %#v", terr)
+		t.Fatalf("Expected a pq.Error, got %#v", terr)
 	}
 }
 

@@ -3,10 +3,6 @@
   go-tests = true
 
 [[constraint]]
-  name = "github.com/kevinburke/go-dberror"
-  version = "0.8"
-
-[[constraint]]
   name = "github.com/kevinburke/go-simple-metrics"
   version = "1.0"
 

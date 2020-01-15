@@ -13,6 +13,7 @@ import (
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
+	_ "github.com/lib/pq"
 )
 
 var mu sync.Mutex

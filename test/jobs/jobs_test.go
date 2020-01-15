@@ -29,7 +29,7 @@ func testCreateMissingFields(t *testing.T) {
 	}
 	_, err := jobs.Create(job)
 	test.AssertError(t, err, "")
-	test.AssertEquals(t, err.Error(), "Invalid delivery_strategy: \"\"")
+	test.AssertEquals(t, err.Error(), `pq: invalid input value for enum delivery_strategy: ""`)
 }
 
 func testCreateInvalidFields(t *testing.T) {
@@ -41,7 +41,7 @@ func testCreateInvalidFields(t *testing.T) {
 	}
 	_, err := jobs.Create(job)
 	test.AssertError(t, err, "")
-	test.AssertEquals(t, err.Error(), "Invalid delivery_strategy: \"foo\"")
+	test.AssertEquals(t, err.Error(), `pq: invalid input value for enum delivery_strategy: "foo"`)
 }
 
 func newJob(t *testing.T) newmodels.CreateJobParams {
