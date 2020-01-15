@@ -3,6 +3,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -22,9 +23,11 @@ import (
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/models/archived_jobs"
+	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
+	"github.com/kevinburke/rickover/setup"
 )
 
 // TODO(burke) use http.LimitedBytesReader.
@@ -54,6 +57,24 @@ var jobIdRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)/(?P<id>job_
 
 // GET /v1/jobs/:job-name
 var getJobTypeRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)$`)
+
+type Config struct {
+	Auth Authorizer
+	// Database connector, for example db.DatabaseURLConnector
+	Connector db.Connector
+	// Number of open connections to the database
+	NumConns int
+}
+
+// New initializes the database connection and returns a http.Handler that can
+// run the server.
+func New(ctx context.Context, cfg Config) (http.Handler, error) {
+	if err := setup.DB(ctx, cfg.Connector, cfg.NumConns); err != nil {
+		return nil, err
+	}
+	s := Get(cfg.Auth)
+	return s, nil
+}
 
 // Get returns a http.Handler with all routes initialized using the given
 // Authorizer.
