@@ -59,8 +59,10 @@ var jobIdRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)/(?P<id>job_
 var getJobTypeRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)$`)
 
 type Config struct {
+	// Authorizer to use. If nil, DefaultAuthorizer is used.
 	Auth Authorizer
-	// Database connector, for example db.DatabaseURLConnector
+	// Database connector, for example db.DatabaseURLConnector. If nil,
+	// db.DefaultConnection is used.
 	Connector db.Connector
 	// Number of open connections to the database
 	NumConns int
@@ -69,6 +71,12 @@ type Config struct {
 // New initializes the database connection and returns a http.Handler that can
 // run the server.
 func New(ctx context.Context, cfg Config) (http.Handler, error) {
+	if cfg.Auth == nil {
+		cfg.Auth = DefaultAuthorizer
+	}
+	if cfg.Connector == nil {
+		cfg.Connector = db.DefaultConnection
+	}
 	if err := setup.DB(ctx, cfg.Connector, cfg.NumConns); err != nil {
 		return nil, err
 	}

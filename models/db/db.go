@@ -10,7 +10,7 @@ import (
 
 // DefaultConnection connects to a Postgres database using the DATABASE_URL
 // environment variable.
-var DefaultConnection = &DatabaseURLConnector{}
+var DefaultConnection = new(DatabaseURLConnector)
 
 // DatabaseURLConnector connects to the database using the DATABASE_URL
 // environment variable.
