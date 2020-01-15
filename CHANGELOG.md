@@ -8,6 +8,9 @@ Authorizer returns an error.
 - Use `pg_advisory_xact_lock` to lock queued jobs before marking them as in
 progress, instead of selecting a row for update.
 
+- Removed go-dberror due to lack of a LICENSE. As a result, error messages and
+  types may change.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't
