@@ -112,11 +112,6 @@ type Worker interface {
 	// HandleStatusCallback with a failed callback; errors are logged, but
 	// otherwise nothing else is done with them.
 	DoWork(*newmodels.QueuedJob) error
-
-	// Sleep returns the amount of time to sleep between failed attempts to
-	// acquire a queued job. The default implementation sleeps for 20, 40, 80,
-	// 160, ..., up to a maximum of 10 seconds between attempts.
-	Sleep(failedAttempts uint32) time.Duration
 }
 
 // AddDequeuer adds a Dequeuer to the Pool. w should be the work that the

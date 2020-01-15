@@ -18,10 +18,6 @@ func (dp *DummyProcessor) DoWork(_ *newmodels.QueuedJob) error {
 	return nil
 }
 
-func (dp *DummyProcessor) Sleep(_ uint32) time.Duration {
-	return 0
-}
-
 type ChannelProcessor struct {
 	Count int64
 	Ch    chan struct{}
@@ -35,8 +31,4 @@ func (dp *ChannelProcessor) DoWork(qj *newmodels.QueuedJob) error {
 	case <-time.After(100 * time.Millisecond):
 		return errors.New("channel send timed out")
 	}
-}
-
-func (dp *ChannelProcessor) Sleep(_ uint32) time.Duration {
-	return 0
 }

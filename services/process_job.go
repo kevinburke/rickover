@@ -90,19 +90,6 @@ func jitter(val float64) float64 {
 	return val*0.8 + rand.Float64()*0.2*2*val
 }
 
-func (jp JobProcessor) Sleep(failedAttempts uint32) time.Duration {
-	return GetSleepDuration(jp.SleepFactor, failedAttempts)
-}
-
-// GetSleepDuration calculates sleep duration
-func GetSleepDuration(sleepFactor float64, failedAttempts uint32) time.Duration {
-	multiplier := math.Pow(sleepFactor, float64(failedAttempts))
-	if multiplier > maxMultiplier {
-		multiplier = maxMultiplier
-	}
-	return 10 * time.Duration(jitter(multiplier)) * time.Millisecond
-}
-
 func (jp *JobProcessor) requestRetry(qj *newmodels.QueuedJob) error {
 	log.Printf("processing job %s (type %s)", qj.ID.String(), qj.Name)
 	for i := uint8(0); i < 3; i++ {
