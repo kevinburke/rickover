@@ -36,7 +36,7 @@ func testWorkerShutsDown(t *testing.T) {
 	poolname := factory.RandomId("pool")
 	pool := dequeuer.NewPool(poolname.String())
 	for i := 0; i < 3; i++ {
-		pool.AddDequeuer(factory.Processor("http://example.com"))
+		pool.AddDequeuer(factory.Processor("http://example.com").Worker)
 	}
 	c1 := make(chan bool, 1)
 	go func() {
@@ -84,7 +84,7 @@ func testWorkerMakesCorrectRequest(t *testing.T) {
 	defer s.Close()
 	jp := factory.Processor(s.URL)
 	pool := dequeuer.NewPool(qj.Name)
-	pool.AddDequeuer(jp)
+	pool.AddDequeuer(jp.Worker)
 	defer pool.Shutdown(context.Background())
 	select {
 	case <-c1:
@@ -120,7 +120,7 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 	pool := dequeuer.NewPool(qj.Name)
 	for i := 0; i < 20; i++ {
 		jp := factory.Processor(s.URL)
-		pool.AddDequeuer(jp)
+		pool.AddDequeuer(jp.Worker)
 	}
 	defer pool.Shutdown(context.Background())
 	count := 0
@@ -141,7 +141,7 @@ func TestCreatePools(t *testing.T) {
 	qj := factory.CreateQJ(t)
 	factory.CreateQJ(t)
 	proc := factory.Processor("http://example.com")
-	pools, err := dequeuer.CreatePools(proc, 0)
+	pools, err := dequeuer.CreatePools(proc.Worker, 0)
 	test.AssertNotError(t, err, "CreatePools")
 	test.AssertEquals(t, len(pools), 2)
 	foundPool := false
@@ -201,7 +201,7 @@ func runDQBench(b *testing.B, populate bool, concurrency int16) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	pools, err := dequeuer.CreatePools(w, 0)
+	pools, err := dequeuer.CreatePools(w.Worker, 0)
 	test.AssertNotError(b, err, "CreatePools")
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

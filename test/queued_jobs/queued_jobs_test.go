@@ -140,7 +140,7 @@ func testEnqueueUnknownJobTypeErrNoRows(t *testing.T) {
 func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 	t.Parallel()
 	_, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
+	err := services.HandleStatusCallback(context.Background(), qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
 	test.AssertNotError(t, err, "")
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()

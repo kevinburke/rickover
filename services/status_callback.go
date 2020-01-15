@@ -5,6 +5,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -26,7 +27,7 @@ import (
 // already exists, the queued job no longer exists by the time you attempt to
 // delete it, the number of attempts for the queued job don't match up with the
 // passed in value (slow)
-func HandleStatusCallback(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16, retryable bool) error {
+func HandleStatusCallback(ctx context.Context, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16, retryable bool) error {
 	if status == newmodels.ArchivedJobStatusSucceeded {
 		err := createAndDelete(id, name, newmodels.ArchivedJobStatusSucceeded, attempt)
 		if err != nil {

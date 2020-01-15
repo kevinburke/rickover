@@ -178,8 +178,11 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.
 // Processor returns a simple JobProcessor, with a client pointing at the given
 // URL, and various sleeps set to 0.
 func Processor(url string) *services.JobProcessor {
+	worker := &services.DefaultWorker{
+		Client: downstream.NewClient("jobs", "password", url),
+	}
 	return &services.JobProcessor{
-		Client:      downstream.NewClient("jobs", "password", url),
+		Worker:      worker,
 		Timeout:     200 * time.Millisecond,
 		SleepFactor: 0,
 	}

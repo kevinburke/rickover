@@ -111,12 +111,7 @@ type Worker interface {
 	// If DoWork is unable to get the work to be done, it should call
 	// HandleStatusCallback with a failed callback; errors are logged, but
 	// otherwise nothing else is done with them.
-	DoWork(*newmodels.QueuedJob) error
-
-	// Sleep returns the amount of time to sleep between failed attempts to
-	// acquire a queued job. The default implementation sleeps for 20, 40, 80,
-	// 160, ..., up to a maximum of 10 seconds between attempts.
-	Sleep(failedAttempts uint32) time.Duration
+	DoWork(context.Context, *newmodels.QueuedJob) error
 }
 
 // AddDequeuer adds a Dequeuer to the Pool. w should be the work that the
@@ -196,7 +191,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 			if err == nil {
 				failedAcquireCount = 0
 				waitDuration = time.Duration(0)
-				err = d.W.DoWork(qj)
+				err = d.W.DoWork(context.Background(), qj)
 				if err != nil {
 					log.Printf("worker: Error processing job %s: %s", qj.ID.String(), err)
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.error", name))

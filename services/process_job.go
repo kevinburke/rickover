@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/downstream"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -31,8 +33,6 @@ var DefaultTimeout = 5 * time.Minute
 
 // JobProcessor is the default implementation of the Worker interface.
 type JobProcessor struct {
-	// A Client for making requests to the downstream server.
-	Client *downstream.Client
 
 	// Amount of time we should wait for the downstream server to hit the
 	// callback before marking the job as failed.
@@ -42,6 +42,13 @@ type JobProcessor struct {
 	// to acquire a job. The formula for sleeps is 10 * (Factor) ^ (Attempts)
 	// ms. Set to 0 to not sleep between attempts.
 	SleepFactor float64
+
+	Worker dequeuer.Worker
+}
+
+type DefaultWorker struct {
+	// A Client for making requests to the downstream server.
+	Client *downstream.Client
 }
 
 // NewJobProcessor creates a services.JobProcessor that makes requests to the
@@ -54,8 +61,11 @@ type JobProcessor struct {
 // downstream server are timed out and marked as failed after DefaultTimeout
 // has elapsed.
 func NewJobProcessor(downstreamUrl string, downstreamPassword string) *JobProcessor {
+	worker := &DefaultWorker{
+		Client: downstream.NewClient("jobs", downstreamPassword, downstreamUrl),
+	}
 	return &JobProcessor{
-		Client:      downstream.NewClient("jobs", downstreamPassword, downstreamUrl),
+		Worker:      worker,
 		Timeout:     DefaultTimeout,
 		SleepFactor: defaultSleepFactor,
 	}
@@ -69,18 +79,18 @@ func isTimeout(err error) bool {
 
 // DoWork sends the given queued job to the downstream service, then waits for
 // it to complete.
-func (jp *JobProcessor) DoWork(qj *newmodels.QueuedJob) error {
-	if err := jp.requestRetry(qj); err != nil {
+func (jp *DefaultWorker) DoWork(ctx context.Context, qj *newmodels.QueuedJob) error {
+	if err := jp.requestRetry(ctx, qj); err != nil {
 		if isTimeout(err) {
 			// Assume the request made it to Heroku; we see this most often
 			// when the downstream server restarts. Heroku receives/queues the
 			// requests until the new server is ready, and we see a timeout.
-			return waitForJob(qj, jp.Timeout)
+			return waitForJob(ctx, qj)
 		} else {
-			return HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
+			return HandleStatusCallback(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		}
 	}
-	return waitForJob(qj, jp.Timeout)
+	return waitForJob(ctx, qj)
 }
 
 // Jitter returns a value that's around the given val, but not exactly it. The
@@ -103,7 +113,7 @@ func GetSleepDuration(sleepFactor float64, failedAttempts uint32) time.Duration 
 	return 10 * time.Duration(jitter(multiplier)) * time.Millisecond
 }
 
-func (jp *JobProcessor) requestRetry(qj *newmodels.QueuedJob) error {
+func (jp *DefaultWorker) requestRetry(ctx context.Context, qj *newmodels.QueuedJob) error {
 	log.Printf("processing job %s (type %s)", qj.ID.String(), qj.Name)
 	for i := uint8(0); i < 3; i++ {
 		if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
@@ -146,7 +156,7 @@ func (jp *JobProcessor) requestRetry(qj *newmodels.QueuedJob) error {
 	return nil
 }
 
-func waitForJob(qj *newmodels.QueuedJob, failTimeout time.Duration) error {
+func waitForJob(ctx context.Context, qj *newmodels.QueuedJob) error {
 	start := time.Now()
 	// This is not going to change but we continually overwrite qj
 	name := qj.Name
@@ -154,16 +164,12 @@ func waitForJob(qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 
 	currentAttemptCount := qj.Attempts
 	queryCount := int64(0)
-	if failTimeout <= 0 {
-		failTimeout = DefaultTimeout
-	}
-	timeoutChan := time.After(failTimeout)
 	for {
 		select {
-		case <-timeoutChan:
+		case <-ctx.Done():
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
-			log.Printf("5 minutes elapsed, marking %s (type %s) as failed", idStr, name)
-			err := HandleStatusCallback(qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
+			log.Printf("timeout elapsed, marking %s (type %s) as failed", idStr, name)
+			err := HandleStatusCallback(ctx, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
 			log.Printf("job %s (type %s) timed out after %v", idStr, name, time.Since(start))
 			if err == sql.ErrNoRows {
