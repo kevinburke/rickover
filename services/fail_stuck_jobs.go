@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -22,7 +23,7 @@ func ArchiveStuckJobs(olderThan time.Duration) error {
 		return err
 	}
 	for _, qj := range jobs {
-		err = HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
+		err = HandleStatusCallback(context.TODO(), qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		if err == nil {
 			log.Printf("Found stuck job %s and marked it as failed", qj.ID.String())
 		} else {

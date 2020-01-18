@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -73,7 +74,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// http://stackoverflow.com/q/30716354/329700
 		jsr.Retryable = func() *bool { b := true; return &b }()
 	}
-	err = services.HandleStatusCallback(id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
+	err = services.HandleStatusCallback(context.TODO(), id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
 	} else if err == queued_jobs.ErrNotFound {

@@ -1,11 +1,11 @@
 package services
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
-	"math"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -15,11 +15,6 @@ import (
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 )
-
-// 10ms * 2^10 ~ 10 seconds between attempts
-var maxMultiplier = math.Pow(2, 10)
-
-const defaultSleepFactor = 2
 
 // UnavailableSleepFactor determines how long the application should sleep
 // between 503 Service Unavailable downstream responses.
@@ -31,77 +26,36 @@ var DefaultTimeout = 5 * time.Minute
 
 // JobProcessor is the default implementation of the Worker interface.
 type JobProcessor struct {
-	// A Client for making requests to the downstream server.
-	Client *downstream.Client
-
-	// Amount of time we should wait for the downstream server to hit the
-	// callback before marking the job as failed.
+	// Amount of time we should wait for the Handler to perform the work before
+	// marking the job as failed.
 	Timeout time.Duration
 
-	// Multiplier used to determine how long to sleep between failed attempts
-	// to acquire a job. The formula for sleeps is 10 * (Factor) ^ (Attempts)
-	// ms. Set to 0 to not sleep between attempts.
-	SleepFactor float64
+	Handler Handler
 }
 
-// NewJobProcessor creates a services.JobProcessor that makes requests to the
-// downstream url.
-//
-// By default the Client uses Basic Auth with "jobs" as the username, and the
-// configured password as the password.
-//
-// If the downstream server does not hit the callback, jobs sent to the
-// downstream server are timed out and marked as failed after DefaultTimeout
-// has elapsed.
-func NewJobProcessor(downstreamUrl string, downstreamPassword string) *JobProcessor {
-	return &JobProcessor{
-		Client:      downstream.NewClient("jobs", downstreamPassword, downstreamUrl),
-		Timeout:     DefaultTimeout,
-		SleepFactor: defaultSleepFactor,
-	}
+type Handler interface {
+	// Handle is responsible for notifying some downstream thing that there is
+	// work to be done.
+	Handle(context.Context, *newmodels.QueuedJob) error
 }
 
-// isTimeout returns true if the err was caused by a request timeout.
-func isTimeout(err error) bool {
-	// This is difficult in Go 1.5: http://stackoverflow.com/a/23497404/329700
-	return strings.Contains(err.Error(), "Timeout exceeded")
+type DownstreamHandler struct {
+	// A Client for making requests to the downstream server.
+	client *downstream.Client
 }
 
-// DoWork sends the given queued job to the downstream service, then waits for
-// it to complete.
-func (jp *JobProcessor) DoWork(qj *newmodels.QueuedJob) error {
-	if err := jp.requestRetry(qj); err != nil {
-		if isTimeout(err) {
-			// Assume the request made it to Heroku; we see this most often
-			// when the downstream server restarts. Heroku receives/queues the
-			// requests until the new server is ready, and we see a timeout.
-			return waitForJob(qj, jp.Timeout)
-		} else {
-			return HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
-		}
-	}
-	return waitForJob(qj, jp.Timeout)
-}
-
-// Jitter returns a value that's around the given val, but not exactly it. The
-// jitter is randomly chosen between 0.8 and 1.2 times the given value, evenly
-// distributed.
-func jitter(val float64) float64 {
-	return val*0.8 + rand.Float64()*0.2*2*val
-}
-
-func (jp *JobProcessor) requestRetry(qj *newmodels.QueuedJob) error {
+func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob) error {
 	log.Printf("processing job %s (type %s)", qj.ID.String(), qj.Name)
 	for i := uint8(0); i < 3; i++ {
 		if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
-			return createAndDelete(qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
+			return createAndDelete(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
 		}
 		params := &downstream.JobParams{
 			Data:     qj.Data,
 			Attempts: qj.Attempts,
 		}
 		start := time.Now()
-		err := jp.Client.Job.Post(qj.Name, &qj.ID, params)
+		err := d.client.Job.Post(ctx, qj.Name, &qj.ID, params)
 		go metrics.Time("post_job.latency", time.Since(start))
 		go metrics.Time(fmt.Sprintf("post_job.%s.latency", qj.Name), time.Since(start))
 		if err == nil {
@@ -133,7 +87,77 @@ func (jp *JobProcessor) requestRetry(qj *newmodels.QueuedJob) error {
 	return nil
 }
 
-func waitForJob(qj *newmodels.QueuedJob, failTimeout time.Duration) error {
+func NewDownstreamHandler(downstreamUrl string, downstreamPassword string) *DownstreamHandler {
+	return &DownstreamHandler{
+		client: downstream.NewClient("jobs", downstreamPassword, downstreamUrl),
+	}
+}
+
+// NewJobProcessor creates a services.JobProcessor that makes requests to the
+// downstream url.
+//
+// By default the Client uses Basic Auth with "jobs" as the username, and the
+// configured password as the password.
+//
+// If the downstream server does not hit the callback, jobs sent to the
+// downstream server are timed out and marked as failed after DefaultTimeout
+// has elapsed.
+func NewJobProcessor(h Handler) *JobProcessor {
+	return &JobProcessor{
+		Timeout: DefaultTimeout,
+		Handler: h,
+	}
+}
+
+// isTimeout returns true if the err was caused by a request timeout.
+func isTimeout(err error) bool {
+	//var sysErr *os.SyscallError
+	//if errors.As(err, &sysErr) {
+	//return sysErr.Syscall == "connect"
+	//}
+	if errors.Is(err, context.DeadlineExceeded) {
+		// We can't really introspect the phase of the HTTP process, just
+		// assume these are all timeouts.
+		return true
+	}
+	return strings.Contains(err.Error(), "Timeout exceeded")
+}
+
+// DoWork sends the given queued job to the downstream service, then waits for
+// it to complete.
+func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) error {
+	if jp == nil || jp.Handler == nil {
+		panic("cannot do work with nil Handler")
+	}
+	var tctx context.Context
+	var cancel context.CancelFunc
+	deadline, ok := ctx.Deadline()
+	if ok && time.Until(deadline) > 30*time.Millisecond {
+		// reserve 30ms for the database; it's not great but better than nothing
+		tctx, cancel = context.WithDeadline(ctx, deadline.Add(-30*time.Millisecond))
+	} else {
+		tctx, cancel = context.WithCancel(ctx)
+	}
+	defer cancel()
+	if err := jp.Handler.Handle(tctx, qj); err != nil {
+		if isTimeout(err) {
+			// Special case: if the request made it to the downstream server,
+			// but we timed out waiting for a response, we assume the downstream
+			// server received it and will handle it. we see this most often
+			// when the downstream server restarts. Heroku receives/queues the
+			// requests until the new server is ready, and we see a timeout.
+			return waitForJob(ctx, qj, jp.Timeout)
+		} else {
+			// Assume the request failed.
+			return HandleStatusCallback(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
+		}
+	}
+	return waitForJob(ctx, qj, jp.Timeout)
+}
+
+// waitForJob waits for another thread to update the status of the job in
+// the queued_jobs table.
+func waitForJob(ctx context.Context, qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 	start := time.Now()
 	// This is not going to change but we continually overwrite qj
 	name := qj.Name
@@ -144,13 +168,14 @@ func waitForJob(qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 	if failTimeout <= 0 {
 		failTimeout = DefaultTimeout
 	}
-	timeoutChan := time.After(failTimeout)
+	tctx, cancel := context.WithTimeout(ctx, failTimeout)
+	defer cancel()
 	for {
 		select {
-		case <-timeoutChan:
+		case <-tctx.Done():
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
 			log.Printf("5 minutes elapsed, marking %s (type %s) as failed", idStr, name)
-			err := HandleStatusCallback(qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
+			err := HandleStatusCallback(ctx, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
 			log.Printf("job %s (type %s) timed out after %v", idStr, name, time.Since(start))
 			if err == sql.ErrNoRows {
@@ -165,7 +190,7 @@ func waitForJob(qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 			return err
 		default:
 			getStart := time.Now()
-			qj, err := queued_jobs.Get(qj.ID)
+			qj, err := queued_jobs.Get(tctx, qj.ID)
 			queryCount++
 			go metrics.Time("wait_for_job.get.latency", time.Since(getStart))
 			if err == queued_jobs.ErrNotFound {

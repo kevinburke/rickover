@@ -60,19 +60,22 @@ func main() {
 	}
 
 	parsedUrl := config.GetURLOrBail("DOWNSTREAM_URL")
-	jp := services.NewJobProcessor(parsedUrl.String(), downstreamPassword)
+	handler := services.NewDownstreamHandler(parsedUrl.String(), downstreamPassword)
+	jp := services.NewJobProcessor(handler)
 
+	ctx, cancel := context.WithCancel(context.Background())
 	// This creates a pool of dequeuers and starts them.
-	pools, err := dequeuer.CreatePools(jp, 200*time.Millisecond)
+	pools, err := dequeuer.CreatePools(ctx, jp, 200*time.Millisecond)
 	checkError(err)
 
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, unix.SIGINT, unix.SIGTERM)
 	sig := <-sigterm
 	fmt.Printf("Caught signal %v, shutting down...\n", sig)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	g, errctx := errgroup.WithContext(ctx)
+	cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	g, errctx := errgroup.WithContext(shutdownCtx)
 	for _, p := range pools {
 		if p != nil {
 			p := p

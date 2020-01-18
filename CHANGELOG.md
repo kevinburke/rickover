@@ -11,6 +11,25 @@ progress, instead of selecting a row for update.
 - Removed go-dberror due to lack of a LICENSE. As a result, error messages and
   types may change.
 
+- Removed Sleep() interface from the Worker.
+
+- JobProcessor now has a Handler interface that is more flexible for how work is
+  to be performed. NewJobProcessor accepts a Handler; the old downstreamUrl and
+  Password can be created by calling
+
+    ```
+    NewJobProcessor(NewDownstreamHandler(url, password))
+    ```
+
+- Many function calls, including database queries and the downstream client,
+now accept a `context.Context`, including the dequeuer, which no longer has a
+`QuitChan`. Use a `context.CancelFunc` to cancel the dequeuer.
+
+- The `services.JobProcessor` does not automatically use a `downstream.Client`,
+it has a `Handle(context.Context, *QueuedJob)` interface that can be used to
+swap out the implementation of the thing that actually processes the downstream
+job.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't

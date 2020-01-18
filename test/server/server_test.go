@@ -2,6 +2,7 @@ package servertest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -61,7 +62,7 @@ func TestFailedUnretryableArchivesJob(t *testing.T) {
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, 200)
 
-	_, err := queued_jobs.Get(qj.ID)
+	_, err := queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 	aj, err := archived_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "finding archived job")
@@ -108,7 +109,7 @@ func TestSuccessWritesDBRecord(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
-	job, err := jobs.Get(validRequest.Name)
+	job, err := jobs.Get(context.Background(), validRequest.Name)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, job.Name, validRequest.Name)
 	test.AssertEquals(t, job.Attempts, validRequest.Attempts)

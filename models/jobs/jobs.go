@@ -18,8 +18,8 @@ func Create(params newmodels.CreateJobParams) (*newmodels.Job, error) {
 }
 
 // Get a job by its name.
-func Get(name string) (*newmodels.Job, error) {
-	job, err := newmodels.DB.GetJob(context.Background(), name)
+func Get(ctx context.Context, name string) (*newmodels.Job, error) {
+	job, err := newmodels.DB.GetJob(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -32,13 +32,17 @@ func GetAll() ([]newmodels.Job, error) {
 }
 
 // GetRetry attempts to get the job `attempts` times before giving up.
-func GetRetry(name string, attempts uint8) (job *newmodels.Job, err error) {
+func GetRetry(ctx context.Context, name string, attempts uint8) (job *newmodels.Job, err error) {
 	for i := uint8(0); i < attempts; i++ {
-		job, err = Get(name)
+		job, err = Get(ctx, name)
 		if err == nil || err == sql.ErrNoRows {
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+		select {
+		case <-time.After(50 * time.Millisecond):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 	return
 }

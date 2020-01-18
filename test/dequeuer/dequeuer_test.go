@@ -26,6 +26,7 @@ func TestAll(t *testing.T) {
 	defer test.TearDown(t)
 	t.Run("Parallel", func(t *testing.T) {
 		t.Run("TestWorkerShutsDown", testWorkerShutsDown)
+		t.Run("TestWorkerShutsDownWithContext", testWorkerShutsDownWithContext)
 		t.Run("TestWorkerMakesCorrectRequest", testWorkerMakesCorrectRequest)
 		t.Run("TestWorkerMakesExactlyOneRequest", testWorkerMakesExactlyOneRequest)
 	})
@@ -33,17 +34,48 @@ func TestAll(t *testing.T) {
 
 func testWorkerShutsDown(t *testing.T) {
 	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	poolname := factory.RandomId("pool")
-	pool := dequeuer.NewPool(poolname.String())
+	pool := dequeuer.NewPool(ctx, poolname.String())
 	for i := 0; i < 3; i++ {
-		pool.AddDequeuer(factory.Processor("http://example.com"))
+		pool.AddDequeuer(ctx, factory.Processor("http://example.com"))
 	}
-	c1 := make(chan bool, 1)
+	c1 := make(chan struct{}, 1)
 	go func() {
-		err := pool.Shutdown(context.Background())
+		err := pool.Shutdown(ctx)
 		test.AssertNotError(t, err, "")
-		c1 <- true
+		c1 <- struct{}{}
 	}()
+	for {
+		select {
+		case <-c1:
+			return
+		case <-time.After(300 * time.Millisecond):
+			t.Fatalf("pool did not shut down in 300ms")
+		}
+	}
+}
+
+func testWorkerShutsDownWithContext(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	poolname := factory.RandomId("pool")
+	pool := dequeuer.NewPool(ctx, poolname.String())
+	for i := 0; i < 3; i++ {
+		pool.AddDequeuer(ctx, factory.Processor("http://example.com"))
+	}
+	c1 := make(chan struct{}, 1)
+	go func() {
+		for {
+			if pool.Len() == 0 {
+				c1 <- struct{}{}
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+	}()
+	cancel()
 	for {
 		select {
 		case <-c1:
@@ -83,8 +115,10 @@ func testWorkerMakesCorrectRequest(t *testing.T) {
 	}))
 	defer s.Close()
 	jp := factory.Processor(s.URL)
-	pool := dequeuer.NewPool(qj.Name)
-	pool.AddDequeuer(jp)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pool := dequeuer.NewPool(ctx, qj.Name)
+	pool.AddDequeuer(ctx, jp)
 	defer pool.Shutdown(context.Background())
 	select {
 	case <-c1:
@@ -117,12 +151,13 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 		c1 <- true
 	}))
 	defer s.Close()
-	pool := dequeuer.NewPool(qj.Name)
+	ctx, cancel := context.WithCancel(context.Background())
+	pool := dequeuer.NewPool(ctx, qj.Name)
 	for i := 0; i < 20; i++ {
 		jp := factory.Processor(s.URL)
-		pool.AddDequeuer(jp)
+		pool.AddDequeuer(ctx, jp)
 	}
-	defer pool.Shutdown(context.Background())
+	defer cancel()
 	count := 0
 	for {
 		select {
@@ -141,7 +176,8 @@ func TestCreatePools(t *testing.T) {
 	qj := factory.CreateQJ(t)
 	factory.CreateQJ(t)
 	proc := factory.Processor("http://example.com")
-	pools, err := dequeuer.CreatePools(proc, 0)
+	ctx := context.Background()
+	pools, err := dequeuer.CreatePools(ctx, proc, 0)
 	test.AssertNotError(t, err, "CreatePools")
 	test.AssertEquals(t, len(pools), 2)
 	foundPool := false
@@ -201,7 +237,8 @@ func runDQBench(b *testing.B, populate bool, concurrency int16) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	b.SetBytes(int64(len(data)))
-	pools, err := dequeuer.CreatePools(w, 0)
+	ctx := context.Background()
+	pools, err := dequeuer.CreatePools(ctx, w, 0)
 	test.AssertNotError(b, err, "CreatePools")
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

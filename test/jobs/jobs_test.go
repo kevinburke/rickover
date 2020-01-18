@@ -1,6 +1,7 @@
 package test_jobs
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -73,7 +74,7 @@ func testGet(t *testing.T) {
 	j0 := newJob(t)
 	_, err := jobs.Create(j0)
 	test.AssertNotError(t, err, "")
-	j, err := jobs.Get(j0.Name)
+	j, err := jobs.Get(context.Background(), j0.Name)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, j.Name, j0.Name)
 	test.AssertEquals(t, j.DeliveryStrategy, newmodels.DeliveryStrategyAtLeastOnce)

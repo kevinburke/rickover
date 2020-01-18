@@ -70,8 +70,8 @@ func EnqueueFast(params newmodels.EnqueueJobFastParams) error {
 
 // Get the queued job with the given id. Returns the job, or an error. If no
 // record could be found, the error will be `queued_jobs.ErrNotFound`.
-func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {
-	qj, err := newmodels.DB.GetQueuedJob(context.Background(), id)
+func Get(ctx context.Context, id types.PrefixUUID) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.GetQueuedJob(ctx, id)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -83,10 +83,10 @@ func Get(id types.PrefixUUID) (*newmodels.QueuedJob, error) {
 }
 
 // GetRetry attempts to retrieve the job attempts times before giving up.
-func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, err error) {
+func GetRetry(ctx context.Context, id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, err error) {
 	for i := uint8(0); i < attempts; i++ {
-		job, err = Get(id)
-		if err == nil || err == ErrNotFound {
+		job, err = Get(ctx, id)
+		if err == nil || err == ErrNotFound || err == context.Canceled || err == context.DeadlineExceeded {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -96,8 +96,8 @@ func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, er
 
 // Delete deletes the given queued job. Returns nil if the job was deleted
 // successfully. If no job exists to be deleted, ErrNotFound is returned.
-func Delete(id types.PrefixUUID) error {
-	num, err := newmodels.DB.DeleteQueuedJob(context.Background(), id)
+func Delete(ctx context.Context, id types.PrefixUUID) error {
+	num, err := newmodels.DB.DeleteQueuedJob(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -108,10 +108,10 @@ func Delete(id types.PrefixUUID) error {
 }
 
 // DeleteRetry attempts to Delete the item `attempts` times.
-func DeleteRetry(id types.PrefixUUID, attempts uint8) error {
+func DeleteRetry(ctx context.Context, id types.PrefixUUID, attempts uint8) error {
 	for i := uint8(0); i < attempts; i++ {
-		err := Delete(id)
-		if err == nil || err == ErrNotFound {
+		err := Delete(ctx, id)
+		if err == nil || err == ErrNotFound || err == context.Canceled || err == context.DeadlineExceeded {
 			return err
 		}
 	}

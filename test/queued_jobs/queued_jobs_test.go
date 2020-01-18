@@ -43,24 +43,6 @@ func TestAll(t *testing.T) {
 	})
 }
 
-func TestEnqueue(t *testing.T) {
-	defer test.TearDown(t)
-	qj := factory.CreateQueuedJob(t, factory.EmptyData)
-	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
-	test.AssertEquals(t, qj.Name, "echo")
-	test.AssertEquals(t, qj.Attempts, int16(7))
-	test.AssertEquals(t, qj.Status, newmodels.JobStatusQueued)
-
-	diff := time.Since(qj.RunAfter)
-	test.Assert(t, diff < 100*time.Millisecond, "")
-
-	diff = time.Since(qj.CreatedAt)
-	test.Assert(t, diff < 100*time.Millisecond, "")
-
-	diff = time.Since(qj.UpdatedAt)
-	test.Assert(t, diff < 100*time.Millisecond, "")
-}
-
 func testEnqueueNoData(t *testing.T) {
 	t.Parallel()
 	id := types.GenerateUUID("jobname_")
@@ -140,7 +122,7 @@ func testEnqueueUnknownJobTypeErrNoRows(t *testing.T) {
 func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 	t.Parallel()
 	_, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
+	err := services.HandleStatusCallback(context.Background(), qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
 	test.AssertNotError(t, err, "")
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
@@ -152,14 +134,14 @@ func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 func testNonexistentReturnsErrNoRows(t *testing.T) {
 	t.Parallel()
 	id, _ := types.NewPrefixUUID("job_a9173b65-7714-42b4-85f2-8336f6d12180")
-	_, err := queued_jobs.Get(id)
+	_, err := queued_jobs.Get(context.Background(), id)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 }
 
 func testGetQueuedJob(t *testing.T) {
 	t.Parallel()
 	_, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	gotQj, err := queued_jobs.Get(qj.ID)
+	gotQj, err := queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, gotQj.ID.String(), qj.ID.String())
 }
@@ -167,14 +149,32 @@ func testGetQueuedJob(t *testing.T) {
 func testDeleteQueuedJob(t *testing.T) {
 	t.Parallel()
 	_, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	err := queued_jobs.Delete(qj.ID)
+	err := queued_jobs.Delete(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 }
 
 func testDeleteNonexistentJobReturnsErrNoRows(t *testing.T) {
 	t.Parallel()
-	err := queued_jobs.Delete(factory.RandomId("job_"))
+	err := queued_jobs.Delete(context.Background(), factory.RandomId("job_"))
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
+}
+
+func TestEnqueue(t *testing.T) {
+	defer test.TearDown(t)
+	qj := factory.CreateQueuedJob(t, factory.EmptyData)
+	test.AssertEquals(t, qj.ID.String(), "job_6740b44e-13b9-475d-af06-979627e0e0d6")
+	test.AssertEquals(t, qj.Name, "echo")
+	test.AssertEquals(t, qj.Attempts, int16(7))
+	test.AssertEquals(t, qj.Status, newmodels.JobStatusQueued)
+
+	diff := time.Since(qj.RunAfter)
+	test.Assert(t, diff < 100*time.Millisecond, "")
+
+	diff = time.Since(qj.CreatedAt)
+	test.Assert(t, diff < 100*time.Millisecond, "")
+
+	diff = time.Since(qj.UpdatedAt)
+	test.Assert(t, diff < 100*time.Millisecond, "")
 }
 
 func TestDataRoundtrip(t *testing.T) {
@@ -212,7 +212,7 @@ func TestDataRoundtrip(t *testing.T) {
 	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, d))
 	test.AssertNotError(t, err, "")
 
-	gotQj, err := queued_jobs.Get(qj.ID)
+	gotQj, err := queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 
 	var u User
@@ -242,7 +242,7 @@ func testAcquireReturnsCorrectValues(t *testing.T) {
 func TestAcquireTwoThreads(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
-	factory.CreateQueuedJob(t, factory.EmptyData)
+	job, _ := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -250,16 +250,22 @@ func TestAcquireTwoThreads(t *testing.T) {
 	var gotQj1, gotQj2 *newmodels.QueuedJob
 	resultCh := make(chan struct{}, 1)
 	go func() {
-		gotQj1, err1 = queued_jobs.Acquire(ctx, sampleJob.Name, 1)
+		gotQj1, err1 = queued_jobs.Acquire(ctx, job.Name, 1)
 		resultCh <- struct{}{}
 	}()
 	go func() {
-		gotQj2, err2 = queued_jobs.Acquire(ctx, sampleJob.Name, 1)
+		gotQj2, err2 = queued_jobs.Acquire(ctx, job.Name, 1)
 		resultCh <- struct{}{}
 	}()
 
 	<-resultCh
 	<-resultCh
+	if gotQj1 != nil {
+		fmt.Printf("%#v\n", *gotQj1)
+	}
+	if gotQj2 != nil {
+		fmt.Printf("%#v\n", *gotQj2)
+	}
 	test.Assert(t, err1 == sql.ErrNoRows || err2 == sql.ErrNoRows, fmt.Sprintf("expected one error to be ErrNoRows, got %v %v", err1, err2))
 	test.Assert(t, gotQj1 != nil || gotQj2 != nil, "expected one job to be acquired")
 }

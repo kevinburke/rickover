@@ -223,7 +223,7 @@ type CreateJobRequest struct {
 func getJobType() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		jobName := getJobTypeRoute.FindStringSubmatch(r.URL.Path)[1]
-		job, err := jobs.Get(jobName)
+		job, err := jobs.Get(r.Context(), jobName)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				notFound(w, new404(r))
@@ -389,7 +389,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if done {
 		return
 	}
-	qj, err := queued_jobs.GetRetry(id, 3)
+	qj, err := queued_jobs.GetRetry(r.Context(), id, 3)
 	if err == nil {
 		if qj.Name != name && name != "" {
 			// consider just serializing it if this is too annoying
@@ -496,7 +496,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch terr := err.(type) {
 		case *queued_jobs.UnknownOrArchivedError:
-			_, err = jobs.GetRetry(name, 3)
+			_, err = jobs.GetRetry(r.Context(), name, 3)
 			if err != nil && err == sql.ErrNoRows {
 				nfe := &rest.Error{
 					Title:    fmt.Sprintf("Job type %s not found", name),
@@ -518,7 +518,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		case *pq.Error:
 			if terr.Code == "23505" {
-				queuedJob, err = queued_jobs.Get(id)
+				queuedJob, err = queued_jobs.Get(r.Context(), id)
 				if err != nil {
 					writeServerError(w, r, err)
 					return

@@ -1,6 +1,7 @@
 package downstream
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/kevinburke/go-types"
@@ -15,5 +16,5 @@ func Example() {
 		Attempts: 3,
 	}
 	id, _ := types.NewPrefixUUID("job_123")
-	client.Job.Post("invoice-shipment", &id, &params)
+	client.Job.Post(context.TODO(), "invoice-shipment", &id, &params)
 }

@@ -2,6 +2,7 @@
 package factory
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/kevinburke/go-types"
 	uuid "github.com/kevinburke/go.uuid"
-	"github.com/kevinburke/rickover/downstream"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -80,7 +80,7 @@ func CreateQueuedJob(t testing.TB, data json.RawMessage) *newmodels.QueuedJob {
 func CreateUniqueQueuedJob(t testing.TB, data json.RawMessage) (*newmodels.Job, *newmodels.QueuedJob) {
 	id := types.GenerateUUID("jobname_")
 	j := newmodels.CreateJobParams{
-		Name:             id.String(),
+		Name:             id.String()[:len(id.Prefix)+8],
 		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
 		Attempts:         7,
 		Concurrency:      1,
@@ -126,10 +126,12 @@ func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 
 func CreateArchivedJob(t *testing.T, data json.RawMessage, status newmodels.ArchivedJobStatus) *newmodels.ArchivedJob {
 	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 	_, qj := createJobAndQueuedJob(t, SampleJob, data, false)
-	aj, err := archived_jobs.Create(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
+	aj, err := archived_jobs.Create(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
 	test.AssertNotError(t, err, "")
-	err = queued_jobs.DeleteRetry(qj.ID, 3)
+	err = queued_jobs.DeleteRetry(ctx, qj.ID, 3)
 	test.AssertNotError(t, err, "")
 	return aj
 }
@@ -169,18 +171,19 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.
 		id = JobId
 	}
 	qj, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
-		id, j.Name, runAfter, expiresAt, data,
+		ID: id, Name: j.Name, RunAfter: runAfter, ExpiresAt: expiresAt,
+		Data: data,
 	})
 	test.AssertNotError(t, err, fmt.Sprintf("Error creating queued job %s (job name %s)", id, j.Name))
 	return job, qj
 }
 
 // Processor returns a simple JobProcessor, with a client pointing at the given
-// URL, and various sleeps set to 0.
+// URL, password set to "password" and various sleeps set to 0.
 func Processor(url string) *services.JobProcessor {
+	handler := services.NewDownstreamHandler(url, "password")
 	return &services.JobProcessor{
-		Client:      downstream.NewClient("jobs", "password", url),
-		Timeout:     200 * time.Millisecond,
-		SleepFactor: 0,
+		Timeout: 200 * time.Millisecond,
+		Handler: handler,
 	}
 }

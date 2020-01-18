@@ -2,6 +2,7 @@
 package dequeuer
 
 import (
+	"context"
 	"errors"
 	"sync/atomic"
 	"time"
@@ -13,7 +14,7 @@ type DummyProcessor struct {
 	Count int64
 }
 
-func (dp *DummyProcessor) DoWork(_ *newmodels.QueuedJob) error {
+func (dp *DummyProcessor) DoWork(context.Context, *newmodels.QueuedJob) error {
 	atomic.AddInt64(&dp.Count, 1)
 	return nil
 }
@@ -23,8 +24,10 @@ type ChannelProcessor struct {
 	Ch    chan struct{}
 }
 
-func (dp *ChannelProcessor) DoWork(qj *newmodels.QueuedJob) error {
+func (dp *ChannelProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) error {
 	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	case dp.Ch <- struct{}{}:
 		atomic.AddInt64(&dp.Count, 1)
 		return nil

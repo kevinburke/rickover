@@ -21,9 +21,12 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func NewPool(name string) *Pool {
+func NewPool(ctx context.Context, name string) *Pool {
+	tctx, cancel := context.WithCancel(ctx)
 	return &Pool{
-		Name: name,
+		Name:   name,
+		ctx:    tctx,
+		cancel: cancel,
 	}
 }
 
@@ -40,7 +43,7 @@ func (ps Pools) NumDequeuers() int {
 
 // CreatePools creates job pools for all jobs in the database. The provided
 // Worker w will be shared between all dequeuers, so it must be thread safe.
-func CreatePools(w Worker, maxInitialJitter time.Duration) (Pools, error) {
+func CreatePools(ctx context.Context, w Worker, maxInitialJitter time.Duration) (Pools, error) {
 	jobs, err := jobs.GetAll()
 	if err != nil {
 		return Pools{}, err
@@ -55,12 +58,12 @@ func CreatePools(w Worker, maxInitialJitter time.Duration) (Pools, error) {
 		name := job.Name
 		concurrency := job.Concurrency
 		g.Go(func() error {
-			p := NewPool(name)
+			p := NewPool(ctx, name)
 			var innerg errgroup.Group
 			for j := int16(0); j < concurrency; j++ {
 				innerg.Go(func() error {
 					time.Sleep(time.Duration(rand.Float64()) * maxInitialJitter)
-					err := p.AddDequeuer(w)
+					err := p.AddDequeuer(ctx, w)
 					if err != nil {
 						log.Print(err)
 					}
@@ -83,26 +86,29 @@ func CreatePools(w Worker, maxInitialJitter time.Duration) (Pools, error) {
 // A Pool contains an array of dequeuers, all of which perform work for the
 // same models.Job.
 type Pool struct {
-	Dequeuers              []*Dequeuer
-	Name                   string
-	receivedShutdownSignal bool
-	mu                     sync.Mutex
-	wg                     sync.WaitGroup
+	Dequeuers []*Dequeuer
+	Name      string
+	mu        sync.Mutex
+	wg        sync.WaitGroup
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 type Dequeuer struct {
-	ID       int
-	QuitChan chan bool
-	W        Worker
+	ID     int
+	W      Worker
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // A Worker does some work with a QueuedJob. Worker implementations may be
 // shared and should be threadsafe.
 type Worker interface {
-	// DoWork does whatever work should be done with the queued
-	// job. Success and failure for the job are marked by hitting
-	// services.HandleStatusCallback, or POST /v1/jobs/:job-name/:job-id
-	// (over HTTP).
+	// DoWork is responsible for performing work and either updating the job
+	// status in the database or waiting for the status to be updated by
+	// another thread. Success and failure for the job are marked by hitting
+	// services.HandleStatusCallback, or POST /v1/jobs/:job-name/:job-id (over
+	// HTTP).
 	//
 	// A good pattern is for DoWork to make a HTTP request to a downstream
 	// service, and then for that service to make a HTTP callback to report
@@ -111,25 +117,34 @@ type Worker interface {
 	// If DoWork is unable to get the work to be done, it should call
 	// HandleStatusCallback with a failed callback; errors are logged, but
 	// otherwise nothing else is done with them.
-	DoWork(*newmodels.QueuedJob) error
+	DoWork(context.Context, *newmodels.QueuedJob) error
 }
 
 // AddDequeuer adds a Dequeuer to the Pool. w should be the work that the
 // Dequeuer will do with a dequeued job.
-func (p *Pool) AddDequeuer(w Worker) error {
-	if p.receivedShutdownSignal {
+func (p *Pool) AddDequeuer(ctx context.Context, w Worker) error {
+	select {
+	case <-ctx.Done():
 		return errPoolShutdown
+	default:
 	}
+	tctx, cancel := context.WithCancel(ctx)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	d := &Dequeuer{
-		ID:       len(p.Dequeuers) + 1,
-		QuitChan: make(chan bool, 1),
-		W:        w,
+		ID:     len(p.Dequeuers) + 1,
+		W:      w,
+		ctx:    tctx,
+		cancel: cancel,
 	}
 	p.Dequeuers = append(p.Dequeuers, d)
 	p.wg.Add(1)
-	go d.Work(p.Name, &p.wg)
+	go func() {
+		d.Work(p.Name, &p.wg)
+		// work returned, so it won't do anything more - no point in keeping the
+		// dequeuer around
+		p.RemoveDequeuer()
+	}()
 	return nil
 }
 
@@ -138,25 +153,30 @@ var errPoolShutdown = errors.New("dequeuer: cannot add worker because the pool i
 
 // RemoveDequeuer removes a dequeuer from the pool and sends that dequeuer
 // a shutdown signal.
-func (p *Pool) RemoveDequeuer(ctx context.Context) error {
+func (p *Pool) RemoveDequeuer() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if len(p.Dequeuers) == 0 {
 		return errEmptyPool
 	}
 	dq := p.Dequeuers[0]
+	dq.cancel()
 	p.Dequeuers = append(p.Dequeuers[:0], p.Dequeuers[1:]...)
-	dq.QuitChan <- true
-	close(dq.QuitChan)
 	return nil
+}
+
+func (p *Pool) Len() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.Dequeuers)
 }
 
 // Shutdown all workers in the pool.
 func (p *Pool) Shutdown(ctx context.Context) error {
-	p.receivedShutdownSignal = true
+	p.cancel()
 	l := len(p.Dequeuers)
 	for i := 0; i < l; i++ {
-		err := p.RemoveDequeuer(ctx)
+		err := p.RemoveDequeuer()
 		if err != nil {
 			return err
 		}
@@ -180,7 +200,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 	waitDuration := time.Duration(0)
 	for {
 		select {
-		case <-d.QuitChan:
+		case <-d.ctx.Done():
 			log.Printf("%s worker %d quitting\n", name, d.ID)
 			return
 
@@ -191,7 +211,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 			if err == nil {
 				failedAcquireCount = 0
 				waitDuration = time.Duration(0)
-				err = d.W.DoWork(qj)
+				err = d.W.DoWork(d.ctx, qj)
 				if err != nil {
 					log.Printf("worker: Error processing job %s: %s", qj.ID.String(), err)
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.error", name))

@@ -1,6 +1,7 @@
 package archived_jobs
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kevinburke/go-types"
@@ -9,7 +10,7 @@ import (
 
 func ExampleCreate() {
 	id, _ := types.NewPrefixUUID("job_6740b44e-13b9-475d-af06-979627e0e0d6")
-	aj, _ := Create(id, "echo", newmodels.ArchivedJobStatusSucceeded, 3)
+	aj, _ := Create(context.TODO(), id, "echo", newmodels.ArchivedJobStatusSucceeded, 3)
 	fmt.Println(aj.ID.String())
 }
 

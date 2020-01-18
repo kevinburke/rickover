@@ -61,11 +61,12 @@ func Example_dequeuer() {
 	go services.WatchStuckJobs(1*time.Minute, 7*time.Minute)
 
 	downstreamUrl = config.GetURLOrBail("DOWNSTREAM_URL").String()
-	jp := services.NewJobProcessor(downstreamUrl, downstreamPassword)
+	jp := services.NewJobProcessor(services.NewDownstreamHandler(downstreamUrl, downstreamPassword))
 
 	// CreatePools will read all job types out of the jobs table, then start
 	// all dequeuers for those jobs.
-	pools, err := dequeuer.CreatePools(jp, 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	pools, err := dequeuer.CreatePools(ctx, jp, 200*time.Millisecond)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,8 +75,7 @@ func Example_dequeuer() {
 	signal.Notify(sigterm, unix.SIGINT, unix.SIGTERM)
 	sig := <-sigterm
 	fmt.Printf("Caught signal %v, shutting down...\n", sig)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	cancel()
 	group, errctx := errgroup.WithContext(ctx)
 	for _, p := range pools {
 		if p != nil {

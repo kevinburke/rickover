@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 		c1 <- true
 	}))
 	defer s.Close()
-	jp := services.NewJobProcessor("password", s.URL)
+	jp := services.NewJobProcessor(services.NewDownstreamHandler(s.URL, "password"))
 
 	_, err := jobs.Create(factory.SampleJob)
 	test.AssertNotError(t, err, "")
@@ -59,7 +60,7 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 	}
 	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", time.Now().UTC(), expiresAt, factory.EmptyData))
 	test.AssertNotError(t, err, "")
-	err = jp.DoWork(qj)
+	err = jp.DoWork(context.Background(), qj)
 	test.AssertNotError(t, err, "")
 	for {
 		select {
@@ -121,35 +122,33 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 			test.AssertNotError(t, err, "")
 
 			// Cheating, hit the internal success callback.
-			callbackErr := services.HandleStatusCallback(qj.ID, "echo", newmodels.ArchivedJobStatusSucceeded, int16(5), true)
+			callbackErr := services.HandleStatusCallback(context.Background(), qj.ID, "echo", newmodels.ArchivedJobStatusSucceeded, int16(5), true)
 			test.AssertNotError(t, callbackErr, "")
 		}
 	}))
 	defer s.Close()
 	jp := factory.Processor(s.URL)
-	err = jp.DoWork(qj)
+	err = jp.DoWork(context.Background(), qj)
 	test.AssertNotError(t, err, "")
 }
 
-func TestWorkerWaitsConnectTimeout(t *testing.T) {
+func TestUnreachableDownstreamFailed(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
-	jp := services.NewJobProcessor("http://10.255.255.1", "password")
+	handler := services.NewDownstreamHandler("http://10.255.255.1", "password")
+	jp := services.NewJobProcessor(handler)
 
-	// Okay this is not the world's best design.
-	// Job processor client -> worker client -> generic rest client
-	jp.Client.Client.Client.Timeout = 5 * time.Millisecond
-
-	qj := factory.CreateQueuedJob(t, factory.EmptyData)
-	go func() {
-		err := services.HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
-		test.AssertNotError(t, err, "")
-	}()
-
-	// If this *doesn't* hit a timeout it'll hit HandleStatusCallback(failed),
-	// which will throw an error.
-	err := jp.DoWork(qj)
-	test.AssertNotError(t, err, "")
+	_, qj := factory.CreateAtMostOnceJob(t, factory.EmptyData)
+	// In theory we'd be able to detect the HTTP request did not successfully
+	// establish a connection, and retry it instead of assuming it made it to
+	// the downstream server. In practice that's probably too difficult.
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+	err := jp.DoWork(ctx, qj)
+	test.AssertEquals(t, err, context.DeadlineExceeded)
+	// Job should still be in the queued jobs table.
+	_, err = archived_jobs.Get(qj.ID)
+	test.AssertEquals(t, err, archived_jobs.ErrNotFound)
 }
 
 // this could probably be a simpler test
@@ -159,24 +158,23 @@ func TestWorkerWaitsRequestTimeout(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(60 * time.Millisecond)
+		time.Sleep(70 * time.Millisecond)
 		wg.Done()
 	}))
 	defer s.Close()
 
-	jp := services.NewJobProcessor(s.URL, "password")
-
-	// Okay this is not the world's best design.
-	// Job processor client -> worker client -> generic rest client
-	jp.Client.Client.Client.Timeout = 30 * time.Millisecond
+	handler := services.NewDownstreamHandler(s.URL, "password")
+	jp := services.NewJobProcessor(handler)
 
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
 	go func() {
-		err := services.HandleStatusCallback(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
+		err := services.HandleStatusCallback(context.Background(), qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
 		test.AssertNotError(t, err, "")
 	}()
 
-	workErr := jp.DoWork(qj)
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+	workErr := jp.DoWork(ctx, qj)
 	test.AssertNotError(t, workErr, "")
 	wg.Wait()
 	aj, err := archived_jobs.Get(qj.ID)
@@ -187,18 +185,15 @@ func TestWorkerWaitsRequestTimeout(t *testing.T) {
 func TestWorkerDoesNotWaitConnectionFailure(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
-	jp := services.NewJobProcessor(
-		"password",
-		// TODO empty port finder
+	handler := services.NewDownstreamHandler(
+		// TODO, add empty port finder
 		"http://127.0.0.1:29656",
+		"password",
 	)
-
-	// Okay this is not the world's best design.
-	// Job processor client -> worker client -> generic rest client
-	jp.Client.Client.Client.Timeout = 20 * time.Millisecond
+	jp := services.NewJobProcessor(handler)
 
 	_, qj := factory.CreateAtMostOnceJob(t, factory.EmptyData)
-	err := jp.DoWork(qj)
+	err := jp.DoWork(context.Background(), qj)
 	test.AssertNotError(t, err, "")
 	aj, err := archived_jobs.Get(qj.ID)
 	test.AssertNotError(t, err, "")
