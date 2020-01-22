@@ -9,11 +9,10 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/gorilla/handlers"
 	metrics "github.com/kevinburke/go-simple-metrics"
+	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/server"
@@ -43,8 +42,8 @@ func Example_server() {
 
 	metrics.Start("web", "TODO@example.com")
 
-	go setup.MeasureActiveQueries(5 * time.Second)
+	go setup.MeasureActiveQueries(context.TODO(), 5*time.Second)
 
 	log.Println("Listening on port 9090")
-	log.Fatal(http.ListenAndServe(":9090", handlers.LoggingHandler(os.Stdout, server.DefaultServer)))
+	log.Fatal(http.ListenAndServe(":9090", handlers.Log(server.DefaultServer)))
 }

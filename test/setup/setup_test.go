@@ -1,6 +1,7 @@
 package test_setup
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 func TestActiveQueries(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
-	count, err := setup.GetActiveQueries()
+	count, err := setup.GetActiveQueries(context.Background())
 	test.AssertNotError(t, err, "")
 	test.Assert(t, count >= 1, fmt.Sprintf("Expected count >= 1, got %d", count))
 }

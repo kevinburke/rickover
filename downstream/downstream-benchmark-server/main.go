@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gorilla/handlers"
+	"github.com/kevinburke/handlers"
 )
 
 var accepted = []byte("{\"status\": \"accepted\"}")
@@ -76,6 +76,6 @@ func main() {
 	port := "9091"
 	log.Printf("Listening on port %s\n", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port),
-		handlers.LoggingHandler(os.Stdout, http.DefaultServeMux)))
+		handlers.Log(http.DefaultServeMux)))
 
 }

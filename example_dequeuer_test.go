@@ -17,15 +17,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/services"
-	"github.com/kevinburke/rickover/setup"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
 
@@ -46,47 +43,37 @@ func init() {
 }
 
 func Example_dequeuer() {
-	if err := setup.DB(context.TODO(), db.DefaultConnection, dbConns); err != nil {
-		log.Fatal(err)
-	}
-
-	metrics.Start("worker", "TODO@example.com")
-
-	go setup.MeasureActiveQueries(1 * time.Second)
-	go setup.MeasureQueueDepth(5 * time.Second)
-	go setup.MeasureInProgressJobs(1 * time.Second)
-
-	// Every minute, check for in-progress jobs that haven't been updated for
-	// 7 minutes, and mark them as failed.
-	go services.WatchStuckJobs(1*time.Minute, 7*time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		sigterm := make(chan os.Signal, 1)
+		signal.Notify(sigterm, unix.SIGINT, unix.SIGTERM)
+		sig := <-sigterm
+		fmt.Printf("Caught signal %v, shutting down...\n", sig)
+		cancel()
+	}()
 
 	downstreamUrl = config.GetURLOrBail("DOWNSTREAM_URL").String()
 	jp := services.NewJobProcessor(services.NewDownstreamHandler(downstreamUrl, downstreamPassword))
 
-	// CreatePools will read all job types out of the jobs table, then start
-	// all dequeuers for those jobs.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	pools, err := dequeuer.CreatePools(ctx, jp, 200*time.Millisecond)
+	metrics.Start("worker", "TODO@example.com")
+
+	srv, err := dequeuer.New(ctx, dequeuer.Config{
+		Connector:       db.DefaultConnection,
+		Processor:       jp,
+		NumConns:        10,
+		StuckJobTimeout: dequeuer.DefaultStuckJobTimeout,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, unix.SIGINT, unix.SIGTERM)
-	sig := <-sigterm
-	fmt.Printf("Caught signal %v, shutting down...\n", sig)
-	cancel()
-	group, errctx := errgroup.WithContext(ctx)
-	for _, p := range pools {
-		if p != nil {
-			p := p
-			group.Go(func() error {
-				return p.Shutdown(errctx)
-			})
-		}
-	}
-	if err := group.Wait(); err != nil {
-		log.Printf("Error shutting down pool: %v", err.Error())
+	// Run will:
+	//
+	// - start all worker pools
+	// - start a daemon to "fail" stuck jobs after 7 minutes
+	// - start metrics to monitor in progress jobs, active queries against the
+	// database, and the depth of the queue.
+	if err := srv.Run(ctx); err != nil && err != context.Canceled {
+		log.Fatal(err)
 	}
 	log.Println("All pools shut down. Quitting.")
 }

@@ -253,8 +253,8 @@ func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmod
 // GetOldInProgressJobs finds queued in-progress jobs with an updated_at
 // timestamp older than olderThan. A maximum of StuckJobLimit jobs will be
 // returned.
-func GetOldInProgressJobs(olderThan time.Time) ([]newmodels.QueuedJob, error) {
-	jobs, err := newmodels.DB.GetOldInProgressJobs(context.Background(), olderThan)
+func GetOldInProgressJobs(ctx context.Context, olderThan time.Time) ([]newmodels.QueuedJob, error) {
+	jobs, err := newmodels.DB.GetOldInProgressJobs(ctx, olderThan)
 	if err != nil {
 		return nil, err
 	}
@@ -266,8 +266,8 @@ func GetOldInProgressJobs(olderThan time.Time) ([]newmodels.QueuedJob, error) {
 
 // CountReadyAndAll returns the total number of queued and ready jobs in the
 // table.
-func CountReadyAndAll() (allCount int, readyCount int, err error) {
-	result, err := newmodels.DB.CountReadyAndAll(context.TODO())
+func CountReadyAndAll(ctx context.Context) (all int, ready int, err error) {
+	result, err := newmodels.DB.CountReadyAndAll(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -279,8 +279,8 @@ func CountReadyAndAll() (allCount int, readyCount int, err error) {
 //
 // "echo": 5,
 // "remind-assigned-driver": 7,
-func GetCountsByStatus(status newmodels.JobStatus) (map[string]int64, error) {
-	counts, err := newmodels.DB.GetQueuedCountsByStatus(context.Background(), status)
+func GetCountsByStatus(ctx context.Context, status newmodels.JobStatus) (map[string]int64, error) {
+	counts, err := newmodels.DB.GetQueuedCountsByStatus(ctx, status)
 	if err != nil {
 		return nil, err
 	}

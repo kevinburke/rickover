@@ -11,19 +11,23 @@ import (
 
 // ArchiveStuckJobs marks as failed any queued jobs with an updated_at
 // timestamp older than the olderThan value.
-func ArchiveStuckJobs(olderThan time.Duration) error {
+func ArchiveStuckJobs(ctx context.Context, olderThan time.Duration) error {
 	var olderThanTime time.Time
 	if olderThan >= 0 {
 		olderThanTime = time.Now().Add(-1 * olderThan)
 	} else {
 		olderThanTime = time.Now().Add(olderThan)
 	}
-	jobs, err := queued_jobs.GetOldInProgressJobs(olderThanTime)
+	jobs, err := queued_jobs.GetOldInProgressJobs(ctx, olderThanTime)
 	if err != nil {
 		return err
 	}
 	for _, qj := range jobs {
-		err = HandleStatusCallback(context.TODO(), qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
+		// bad to cancel this halfway through, give it time to run regardless fo
+		// the server state.
+		handleCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		err = HandleStatusCallback(handleCtx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		if err == nil {
 			log.Printf("Found stuck job %s and marked it as failed", qj.ID.String())
 		} else {
@@ -39,13 +43,18 @@ func ArchiveStuckJobs(olderThan time.Duration) error {
 // WatchStuckJobs polls the queued_jobs table for stuck jobs (defined as
 // in-progress jobs that haven't been updated in oldDuration time), and marks
 // them as failed.
-func WatchStuckJobs(interval time.Duration, olderThan time.Duration) {
-	for range time.Tick(interval) {
-		go func() {
-			err := ArchiveStuckJobs(olderThan)
-			if err != nil {
-				log.Printf("Error archiving stuck jobs: %s\n", err.Error())
-			}
-		}()
+func WatchStuckJobs(ctx context.Context, interval time.Duration, olderThan time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		err := ArchiveStuckJobs(ctx, olderThan)
+		if err != nil {
+			log.Printf("Error archiving stuck jobs: %s\n", err.Error())
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return
+		}
 	}
 }

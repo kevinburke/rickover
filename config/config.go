@@ -35,5 +35,6 @@ func GetURLOrBail(urlEnvVar string) *url.URL {
 // HTTP transport. If you are using a custom transport, calling this function
 // won't change anything.
 func SetMaxIdleConnsPerHost(maxConns int) {
+	// TODO: this is very brittle!!!
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = maxConns
 }

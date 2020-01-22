@@ -21,51 +21,67 @@ var mu sync.Mutex
 // TODO not sure for the best place for this to live.
 var activeQueriesStmt *sql.Stmt
 
-func prepare() (err error) {
+func prepare(ctx context.Context) (err error) {
 	if !db.Connected() {
 		return errors.New("setup: no DB connection was established, can't query")
 	}
 
-	activeQueriesStmt, err = db.Conn.Prepare(`-- setup.GetActiveQueries
+	activeQueriesStmt, err = db.Conn.PrepareContext(ctx, `-- setup.GetActiveQueries
 SELECT count(*) FROM pg_stat_activity 
 WHERE state='active'
 	`)
 	return
 }
 
-func GetActiveQueries() (count int64, err error) {
-	err = activeQueriesStmt.QueryRow().Scan(&count)
+func GetActiveQueries(ctx context.Context) (count int64, err error) {
+	err = activeQueriesStmt.QueryRowContext(ctx).Scan(&count)
 	return
 }
 
 // TODO all of these should use a different database connection than the server
 // or the worker, to avoid contention.
-func MeasureActiveQueries(interval time.Duration) {
-	for range time.Tick(interval) {
-		count, err := GetActiveQueries()
+func MeasureActiveQueries(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		count, err := GetActiveQueries(ctx)
 		if err == nil {
 			go metrics.Measure("active_queries.count", count)
 		} else {
 			go metrics.Increment("active_queries.error")
 		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
-func MeasureQueueDepth(interval time.Duration) {
-	for range time.Tick(interval) {
-		allCount, readyCount, err := queued_jobs.CountReadyAndAll()
+func MeasureQueueDepth(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		allCount, readyCount, err := queued_jobs.CountReadyAndAll(ctx)
 		if err == nil {
 			go metrics.Measure("queue_depth.all", int64(allCount))
 			go metrics.Measure("queue_depth.ready", int64(readyCount))
 		} else {
 			go metrics.Increment("queue_depth.error")
 		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
-func MeasureInProgressJobs(interval time.Duration) {
-	for range time.Tick(interval) {
-		m, err := queued_jobs.GetCountsByStatus(newmodels.JobStatusInProgress)
+func MeasureInProgressJobs(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		m, err := queued_jobs.GetCountsByStatus(ctx, newmodels.JobStatusInProgress)
 		if err == nil {
 			count := int64(0)
 			for k, v := range m {
@@ -76,11 +92,16 @@ func MeasureInProgressJobs(interval time.Duration) {
 		} else {
 			go metrics.Increment("queued_jobs.in_progress.error")
 		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }
 
 // DB initializes a connection to the database, and prepares queries on all
-// models.
+// models. If connector is nil, db.DefaultConnection will be used.
 func DB(ctx context.Context, connector db.Connector, dbConns int) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -90,11 +111,15 @@ func DB(ctx context.Context, connector db.Connector, dbConns int) error {
 			return nil
 		}
 	}
-	conn, err := connector.Connect(dbConns)
-	db.Conn = conn
+	var dbConnector db.Connector = connector
+	if dbConnector == nil {
+		dbConnector = db.DefaultConnection
+	}
+	conn, err := dbConnector.Connect(dbConns)
 	if err != nil {
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
+	db.Conn = conn
 	if err := db.Conn.PingContext(ctx); err != nil {
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
@@ -105,7 +130,7 @@ func PrepareAll(ctx context.Context) error {
 	if err := newmodels.Setup(ctx); err != nil {
 		return err
 	}
-	if err := prepare(); err != nil {
+	if err := prepare(ctx); err != nil {
 		return err
 	}
 	return nil

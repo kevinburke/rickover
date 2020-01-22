@@ -11,14 +11,88 @@ import (
 	"time"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
+	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
+	"github.com/kevinburke/rickover/services"
+	"github.com/kevinburke/rickover/setup"
 	"golang.org/x/sync/errgroup"
 )
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+type WorkServer struct {
+	processor       *services.JobProcessor
+	stuckJobTimeout time.Duration
+}
+
+type Config struct {
+	// Database connector, for example db.DatabaseURLConnector. If nil,
+	// db.DefaultConnection is used.
+	Connector db.Connector
+	// Number of open connections to the database
+	NumConns        int
+	Processor       *services.JobProcessor
+	StuckJobTimeout time.Duration
+}
+
+// New creates a new WorkServer.
+func New(ctx context.Context, cfg Config) (WorkServer, error) {
+	if err := setup.DB(ctx, cfg.Connector, cfg.NumConns); err != nil {
+		return WorkServer{}, err
+	}
+	if cfg.StuckJobTimeout == 0 {
+		cfg.StuckJobTimeout = 7 * time.Minute
+	}
+	return WorkServer{processor: cfg.Processor, stuckJobTimeout: cfg.StuckJobTimeout}, nil
+}
+
+// How long to wait before marking a job as "stuck"
+const DefaultStuckJobTimeout = 7 * time.Minute
+
+// Run starts the WorkServer and several daemons (to measure queue depth,
+// process "stuck" jobs)
+func (w *WorkServer) Run(ctx context.Context) error {
+	group, errctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		pools, err := CreatePools(ctx, w.processor, 200*time.Millisecond)
+		if err != nil {
+			return err
+		}
+		select {
+		case <-errctx.Done():
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			for _, p := range pools {
+				go func(p *Pool) {
+					p.Shutdown(shutdownCtx)
+				}(p)
+			}
+		}
+		return nil
+	})
+	group.Go(func() error {
+		setup.MeasureActiveQueries(errctx, 1*time.Second)
+		return nil
+	})
+	group.Go(func() error {
+		setup.MeasureQueueDepth(errctx, 5*time.Second)
+		return nil
+	})
+	group.Go(func() error {
+		setup.MeasureInProgressJobs(errctx, 1*time.Second)
+		return nil
+	})
+	group.Go(func() error {
+		// Every minute, check for in-progress jobs that haven't been updated for
+		// 7 minutes, and mark them as failed.
+		services.WatchStuckJobs(errctx, 1*time.Minute, w.stuckJobTimeout)
+		return nil
+	})
+	return group.Wait()
 }
 
 func NewPool(ctx context.Context, name string) *Pool {

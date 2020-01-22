@@ -323,7 +323,7 @@ func TestDecrementErrNoRowsWrongAttempts(t *testing.T) {
 func TestCountAll(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
-	allCount, readyCount, err := queued_jobs.CountReadyAndAll()
+	allCount, readyCount, err := queued_jobs.CountReadyAndAll(context.Background())
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, allCount, 0)
 	test.AssertEquals(t, readyCount, 0)
@@ -331,7 +331,7 @@ func TestCountAll(t *testing.T) {
 	factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 	factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 	factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	allCount, readyCount, err = queued_jobs.CountReadyAndAll()
+	allCount, readyCount, err = queued_jobs.CountReadyAndAll(context.Background())
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, allCount, 3)
 	test.AssertEquals(t, readyCount, 3)
@@ -343,7 +343,7 @@ func TestCountByStatus(t *testing.T) {
 	factory.CreateQueuedJobOnly(t, job.Name, factory.EmptyData)
 	factory.CreateQueuedJobOnly(t, job.Name, factory.EmptyData)
 	factory.CreateAtMostOnceJob(t, factory.EmptyData)
-	m, err := queued_jobs.GetCountsByStatus(newmodels.JobStatusQueued)
+	m, err := queued_jobs.GetCountsByStatus(context.Background(), newmodels.JobStatusQueued)
 	test.AssertNotError(t, err, "")
 	test.Assert(t, len(m) >= 2, "expected at least 2 queued jobs in the database")
 	test.AssertEquals(t, m[job.Name], int64(3))
@@ -352,13 +352,14 @@ func TestCountByStatus(t *testing.T) {
 
 func TestOldInProgress(t *testing.T) {
 	defer test.TearDown(t)
+	ctx := context.Background()
 	_, qj1 := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 	_, qj2 := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	_, err := queued_jobs.Acquire(context.TODO(), qj1.Name, 1)
+	_, err := queued_jobs.Acquire(ctx, qj1.Name, 1)
 	test.AssertNotError(t, err, "")
-	_, err = queued_jobs.Acquire(context.TODO(), qj2.Name, 1)
+	_, err = queued_jobs.Acquire(ctx, qj2.Name, 1)
 	test.AssertNotError(t, err, "")
-	jobs, err := queued_jobs.GetOldInProgressJobs(time.Now().UTC().Add(40 * time.Millisecond))
+	jobs, err := queued_jobs.GetOldInProgressJobs(ctx, time.Now().UTC().Add(40*time.Millisecond))
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, len(jobs), 2)
 	if jobs[0].ID.String() == qj1.ID.String() {
@@ -366,7 +367,7 @@ func TestOldInProgress(t *testing.T) {
 	} else {
 		test.AssertEquals(t, jobs[1].ID.String(), qj1.ID.String())
 	}
-	jobs, err = queued_jobs.GetOldInProgressJobs(time.Now().UTC().Add(-1 * time.Second))
+	jobs, err = queued_jobs.GetOldInProgressJobs(ctx, time.Now().UTC().Add(-1*time.Second))
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, len(jobs), 0)
 }

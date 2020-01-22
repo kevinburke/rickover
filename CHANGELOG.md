@@ -30,6 +30,13 @@ it has a `Handle(context.Context, *QueuedJob)` interface that can be used to
 swap out the implementation of the thing that actually processes the downstream
 job.
 
+- A new `WorkServer` struct in the `dequeuer` package is designed to simplify
+configuration of the deqeueuer. Call `dequeuer.New()` with a `dequeuer.Config`
+to retrieve a `WorkServer`, then call `Run()` on the `WorkServer` to start the
+dequeuer, the stuck job watcher, and all metrics observers.
+
+    See the Example in the top level package for more usage guidance.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't
