@@ -6,6 +6,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math"
 	"time"
@@ -87,6 +88,8 @@ func getRunAfter(totalAttempts, remainingAttempts int16) time.Time {
 	return time.Now().UTC().Add(time.Duration(math.Pow(2, float64(backoff))) * time.Second)
 }
 
+var ErrFailedDecrement = fmt.Errorf("could not decrement queued job counter; job may have been archived or attempt number may not match the database")
+
 func handleFailedCallback(ctx context.Context, id types.PrefixUUID, name string, attempt int16, retryable bool) error {
 	remainingAttempts := attempt - 1
 	if !retryable || remainingAttempts == 0 {
@@ -102,8 +105,12 @@ func handleFailedCallback(ctx context.Context, id types.PrefixUUID, name string,
 		// Try the job again. Note the database decrements the attempt counter
 		start := time.Now()
 		runAfter := getRunAfter(job.Attempts, remainingAttempts)
-		_, err := queued_jobs.Decrement(id, attempt, runAfter)
+		_, err := queued_jobs.Decrement(ctx, id, attempt, runAfter)
 		go metrics.Time("queued_jobs.decrement.latency", time.Since(start))
+		// Possible the queued job exists but the attempt number doesn't line up
+		if err == sql.ErrNoRows {
+			return ErrFailedDecrement
+		}
 		return err
 	}
 }

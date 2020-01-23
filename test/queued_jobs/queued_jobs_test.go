@@ -307,7 +307,7 @@ func TestAcquireDoesntGetInProgressJob(t *testing.T) {
 func TestDecrementDecrements(t *testing.T) {
 	defer test.TearDown(t)
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
-	qj, err := queued_jobs.Decrement(qj.ID, 7, time.Now().Add(1*time.Minute))
+	qj, err := queued_jobs.Decrement(context.Background(), qj.ID, 7, time.Now().Add(1*time.Minute))
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.Attempts, int16(6))
 	test.AssertBetween(t, int64(time.Until(qj.RunAfter)), int64(59*time.Second), int64(1*time.Minute))
@@ -316,7 +316,7 @@ func TestDecrementDecrements(t *testing.T) {
 func TestDecrementErrNoRowsWrongAttempts(t *testing.T) {
 	defer test.TearDown(t)
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
-	_, err := queued_jobs.Decrement(qj.ID, 1, time.Now())
+	_, err := queued_jobs.Decrement(context.Background(), qj.ID, 1, time.Now())
 	test.AssertEquals(t, err, sql.ErrNoRows)
 }
 

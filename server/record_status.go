@@ -91,6 +91,15 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		metrics.Increment("status_callback.duplicate")
 		return
 	}
+	if err == services.ErrFailedDecrement {
+		badRequest(w, r, &rest.Error{
+			ID:       "decrement_failed",
+			Title:    err.Error(),
+			Instance: r.URL.Path,
+		})
+		metrics.Increment("status_callback.failed_decrement")
+		return
+	}
 	writeServerError(w, r, err)
 	metrics.Increment("status_callback.error")
 }

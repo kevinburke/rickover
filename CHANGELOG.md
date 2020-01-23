@@ -37,6 +37,10 @@ dequeuer, the stuck job watcher, and all metrics observers.
 
     See the Example in the top level package for more usage guidance.
 
+- If we attempted to record a failed job but the attempt numbers don't match up
+with what's in the database, previously we would return a 500. Now we catch the
+error and return an appropriate 400.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't

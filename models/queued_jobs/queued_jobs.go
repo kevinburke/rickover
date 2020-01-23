@@ -237,8 +237,8 @@ RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, sta
 //
 // attempts: The current value of the `attempts` column, the returned attempts
 // value will be this number minus 1.
-func Decrement(id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmodels.QueuedJob, error) {
-	qj, err := newmodels.DB.DecrementQueuedJob(context.Background(), newmodels.DecrementQueuedJobParams{
+func Decrement(ctx context.Context, id types.PrefixUUID, attempts int16, runAfter time.Time) (*newmodels.QueuedJob, error) {
+	qj, err := newmodels.DB.DecrementQueuedJob(ctx, newmodels.DecrementQueuedJobParams{
 		ID:       id,
 		Attempts: attempts,
 		RunAfter: runAfter,
