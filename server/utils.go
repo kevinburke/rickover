@@ -24,10 +24,13 @@ func getId(w http.ResponseWriter, r *http.Request, idStr string) (types.PrefixUU
 		})
 		return id, true
 	}
+	if id.Prefix == "" {
+		id.Prefix = queued_jobs.Prefix
+	}
 	if id.Prefix != queued_jobs.Prefix {
 		badRequest(w, r, &rest.Error{
 			ID:    "invalid_prefix",
-			Title: fmt.Sprintf("Please use %s for the uuid prefix, not %s", queued_jobs.Prefix, id.Prefix),
+			Title: fmt.Sprintf("Please use %q for the uuid prefix, not %s", queued_jobs.Prefix, id.Prefix),
 		})
 		return id, true
 	}
