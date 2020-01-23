@@ -132,25 +132,6 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 	test.AssertNotError(t, err, "")
 }
 
-func TestUnreachableDownstreamFailed(t *testing.T) {
-	test.SetUp(t)
-	defer test.TearDown(t)
-	handler := services.NewDownstreamHandler("http://10.255.255.1", "password")
-	jp := services.NewJobProcessor(handler)
-
-	_, qj := factory.CreateAtMostOnceJob(t, factory.EmptyData)
-	// In theory we'd be able to detect the HTTP request did not successfully
-	// establish a connection, and retry it instead of assuming it made it to
-	// the downstream server. In practice that's probably too difficult.
-	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
-	defer cancel()
-	err := jp.DoWork(ctx, qj)
-	test.AssertEquals(t, err, context.DeadlineExceeded)
-	// Job should still be in the queued jobs table.
-	_, err = archived_jobs.Get(qj.ID)
-	test.AssertEquals(t, err, archived_jobs.ErrNotFound)
-}
-
 // this could probably be a simpler test
 func TestWorkerWaitsRequestTimeout(t *testing.T) {
 	test.SetUp(t)

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -73,10 +75,10 @@ func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob)
 				return err
 			default:
 				go func(err error) {
-					if isTimeout(err) {
+					if reachedRemoteServer(err) {
 						metrics.Increment("dequeue.post_job.timeout")
 					} else {
-						log.Printf("Unknown error making POST request to downstream server: %#v", err)
+						log.Printf("Unknown error making POST request to downstream server: %q (%#v)", err, err)
 						metrics.Increment("dequeue.post_job.error_unknown")
 					}
 				}(err)
@@ -109,18 +111,29 @@ func NewJobProcessor(h Handler) *JobProcessor {
 	}
 }
 
-// isTimeout returns true if the err was caused by a request timeout.
-func isTimeout(err error) bool {
-	//var sysErr *os.SyscallError
-	//if errors.As(err, &sysErr) {
-	//return sysErr.Syscall == "connect"
-	//}
+// reachedRemoteServer returns true if the err may have occurred after the
+// remote server was contacted.
+func reachedRemoteServer(err error) bool {
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		fmt.Printf("net err: %#v\n", netErr)
+		if netErr.Op == "dial" {
+			return false
+		}
+	}
+	var sysErr *os.SyscallError
+	if errors.As(err, &sysErr) {
+		fmt.Printf("sys err: %#v\n", sysErr)
+		if sysErr.Syscall == "connect" {
+			return false
+		}
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		// We can't really introspect the phase of the HTTP process, just
 		// assume these are all timeouts.
 		return true
 	}
-	return strings.Contains(err.Error(), "Timeout exceeded")
+	return strings.Contains(err.Error(), "Timeout exceeded") || strings.Contains(err.Error(), "i/o timeout")
 }
 
 // DoWork sends the given queued job to the downstream service, then waits for
@@ -133,22 +146,24 @@ func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) err
 	var cancel context.CancelFunc
 	deadline, ok := ctx.Deadline()
 	if ok && time.Until(deadline) > 30*time.Millisecond {
-		// reserve 30ms for the database; it's not great but better than nothing
+		// reserve 30ms for the database after deadline; it's not great but better than nothing
 		tctx, cancel = context.WithDeadline(ctx, deadline.Add(-30*time.Millisecond))
 	} else {
 		tctx, cancel = context.WithCancel(ctx)
 	}
 	defer cancel()
 	if err := jp.Handler.Handle(tctx, qj); err != nil {
-		if isTimeout(err) {
+		if reachedRemoteServer(err) {
 			// Special case: if the request made it to the downstream server,
 			// but we timed out waiting for a response, we assume the downstream
 			// server received it and will handle it. we see this most often
 			// when the downstream server restarts. Heroku receives/queues the
 			// requests until the new server is ready, and we see a timeout.
+			fmt.Println("wait for job", err)
 			return waitForJob(ctx, qj, jp.Timeout)
 		} else {
 			// Assume the request failed.
+			fmt.Println("handle status callback")
 			return HandleStatusCallback(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		}
 	}
@@ -177,7 +192,7 @@ func waitForJob(ctx context.Context, qj *newmodels.QueuedJob, failTimeout time.D
 			log.Printf("5 minutes elapsed, marking %s (type %s) as failed", idStr, name)
 			err := HandleStatusCallback(ctx, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
-			log.Printf("job %s (type %s) timed out after %v", idStr, name, time.Since(start))
+			log.Printf("job %s (type %s) timed out after waiting for %v", idStr, name, time.Since(start))
 			if err == sql.ErrNoRows {
 				// Attempted to decrement the failed count, but couldn't do so;
 				// we assume another thread got here before we did.
