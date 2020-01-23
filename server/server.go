@@ -42,7 +42,7 @@ var disallowUnencryptedRequests = true
 var DefaultServer http.Handler
 
 // POST /v1/jobs(/:name)/:id/replay
-var replayRoute = regexp.MustCompile(`^/v1/jobs(/(?P<JobName>[^\s\/]+))?/(?P<id>job_[^\s\/]+)/replay$`)
+var replayRoute = regexp.MustCompile(`^/v1/jobs(/(?P<JobName>[^\s\/]+))?/(?P<id>job_[^\s\/]{20,40})/replay$`)
 
 // GET /v1/jobs/job_123
 //
@@ -53,7 +53,7 @@ var getJobRoute = regexp.MustCompile(`^/v1/jobs/(?P<id>job_[^\s\/]+)$`)
 var jobsRoute = regexp.MustCompile("^/v1/jobs$")
 
 // GET/POST/PUT /v1/jobs/:name/:id
-var jobIdRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)/(?P<id>job_[^\s\/]+|random_id)$`)
+var jobIdRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)/(?P<id>(job_)?[^\s\/]{20,40}|random_id)$`)
 
 // GET /v1/jobs/:job-name
 var getJobTypeRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)$`)
@@ -96,9 +96,9 @@ func Get(a Authorizer) http.Handler {
 	h.Handler(getJobRoute, []string{"GET"}, authHandler(handleJobRoute(), a))
 	h.Handler(getJobTypeRoute, []string{"GET"}, authHandler(getJobType(), a))
 
-	h.Handler(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(), a))
-
 	h.Handler(replayRoute, []string{"POST"}, authHandler(replayHandler(), a))
+
+	h.Handler(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(), a))
 
 	h.Handler(regexp.MustCompile("^/debug/pprof$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Index), a))
 	h.Handler(regexp.MustCompile("^/debug/pprof/cmdline$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Cmdline), a))
@@ -459,7 +459,8 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Time:  time.Now().UTC(),
 		}
 	}
-	idStr := jobIdRoute.FindStringSubmatch(r.URL.Path)[2]
+	matches := jobIdRoute.FindStringSubmatch(r.URL.Path)
+	idStr := matches[2]
 	var id types.PrefixUUID
 	// Apache Bench can only hit one URL. This is a hack to allow random ID's
 	// to be generated/inserted, even though the client is hitting the same
@@ -473,9 +474,9 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		var wroteResponse bool
-		id, wroteResponse = getId(w, r, idStr)
-		if wroteResponse {
+		var done bool
+		id, done = getId(w, r, idStr)
+		if done {
 			return
 		}
 	}

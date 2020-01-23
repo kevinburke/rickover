@@ -70,7 +70,7 @@ func Test400NoBody(t *testing.T) {
 	json.NewEncoder(b).Encode(ejr)
 	ssa, server := newSSAServer()
 	ssa.AddUser("test", "password")
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_123", nil)
+	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab", nil)
 	req.SetBasicAuth("test", "password")
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
@@ -79,7 +79,7 @@ func Test400NoBody(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: data")
 	test.AssertEquals(t, e.ID, "missing_parameter")
-	test.AssertEquals(t, e.Instance, "/v1/jobs/echo/job_123")
+	test.AssertEquals(t, e.Instance, "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab")
 }
 
 func Test400EmptyBody(t *testing.T) {
@@ -92,7 +92,7 @@ func Test400EmptyBody(t *testing.T) {
 	json.NewEncoder(b).Encode(v)
 	ssa, server := newSSAServer()
 	ssa.AddUser("test", "password")
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_123", b)
+	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab", b)
 	req.SetBasicAuth("test", "password")
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
@@ -101,7 +101,7 @@ func Test400EmptyBody(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: data")
 	test.AssertEquals(t, e.ID, "missing_parameter")
-	test.AssertEquals(t, e.Instance, "/v1/jobs/echo/job_123")
+	test.AssertEquals(t, e.Instance, "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab")
 }
 
 func Test400InvalidUUID(t *testing.T) {
@@ -112,20 +112,18 @@ func Test400InvalidUUID(t *testing.T) {
 	}
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(ejr)
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_123", b)
+	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", b)
 	req.SetBasicAuth("test", "password")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
 	var e rest.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
-	test.AssertEquals(t, e.Title, "Could not parse \"job_123\" as a UUID with a prefix")
+	test.AssertEquals(t, e.Title, "incorrect UUID format zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
 	test.AssertEquals(t, e.ID, "invalid_uuid")
 }
 
-// Would be great to 400 this but it's difficult with some of the route
-// overlapping we have in place.
-func Test404WrongPrefix(t *testing.T) {
+func Test400WrongPrefix(t *testing.T) {
 	t.Parallel()
 	w := httptest.NewRecorder()
 	ejr := &EnqueueJobRequest{
@@ -136,7 +134,7 @@ func Test404WrongPrefix(t *testing.T) {
 	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/usr_6740b44e-13b9-475d-af06-979627e0e0d6", b)
 	req.SetBasicAuth("test", "password")
 	Get(u).ServeHTTP(w, req)
-	test.AssertEquals(t, w.Code, http.StatusNotFound)
+	test.AssertEquals(t, w.Code, http.StatusBadRequest)
 }
 
 func Test413TooLargeJSON(t *testing.T) {

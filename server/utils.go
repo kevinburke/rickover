@@ -16,9 +16,11 @@ import (
 func getId(w http.ResponseWriter, r *http.Request, idStr string) (types.PrefixUUID, bool) {
 	id, err := types.NewPrefixUUID(idStr)
 	if err != nil {
+		msg := strings.Replace(err.Error(), "types: ", "", 1)
+		msg = strings.Replace(msg, "uuid: ", "", 1)
 		badRequest(w, r, &rest.Error{
 			ID:    "invalid_uuid",
-			Title: strings.Replace(err.Error(), "types: ", "", 1),
+			Title: msg,
 		})
 		return id, true
 	}

@@ -12,7 +12,7 @@ import (
 
 func TestNoBody400(t *testing.T) {
 	t.Parallel()
-	req, _ := http.NewRequest("POST", "/v1/jobs/echo/job_123", nil)
+	req, _ := http.NewRequest("POST", "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab", nil)
 	req.SetBasicAuth("test", "password")
 	w := httptest.NewRecorder()
 	Get(u).ServeHTTP(w, req)
