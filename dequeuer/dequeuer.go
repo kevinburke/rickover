@@ -62,15 +62,13 @@ func (w *WorkServer) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		select {
-		case <-errctx.Done():
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			for _, p := range pools {
-				go func(p *Pool) {
-					p.Shutdown(shutdownCtx)
-				}(p)
-			}
+		<-errctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		for _, p := range pools {
+			go func(p *Pool) {
+				p.Shutdown(shutdownCtx)
+			}(p)
 		}
 		return nil
 	})
