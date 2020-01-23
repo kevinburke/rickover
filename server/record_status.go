@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
@@ -74,10 +75,14 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// http://stackoverflow.com/q/30716354/329700
 		jsr.Retryable = func() *bool { b := true; return &b }()
 	}
-	err = services.HandleStatusCallback(context.TODO(), id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	err = services.HandleStatusCallback(ctx, id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
-	} else if err == queued_jobs.ErrNotFound {
+		return
+	}
+	if err == queued_jobs.ErrNotFound {
 		badRequest(w, r, &rest.Error{
 			ID:       "duplicate_status_request",
 			Title:    "This job has already been archived, or was never queued",
@@ -85,8 +90,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 		metrics.Increment("status_callback.duplicate")
 		return
-	} else {
-		writeServerError(w, r, err)
-		metrics.Increment("status_callback.error")
 	}
+	writeServerError(w, r, err)
+	metrics.Increment("status_callback.error")
 }
