@@ -159,11 +159,9 @@ func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) err
 			// server received it and will handle it. we see this most often
 			// when the downstream server restarts. Heroku receives/queues the
 			// requests until the new server is ready, and we see a timeout.
-			fmt.Println("wait for job", err)
 			return waitForJob(ctx, qj, jp.Timeout)
 		} else {
 			// Assume the request failed.
-			fmt.Println("handle status callback")
 			return HandleStatusCallback(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		}
 	}
