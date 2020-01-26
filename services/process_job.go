@@ -116,14 +116,12 @@ func NewJobProcessor(h Handler) *JobProcessor {
 func reachedRemoteServer(err error) bool {
 	var netErr *net.OpError
 	if errors.As(err, &netErr) {
-		fmt.Printf("net err: %#v\n", netErr)
 		if netErr.Op == "dial" {
 			return false
 		}
 	}
 	var sysErr *os.SyscallError
 	if errors.As(err, &sysErr) {
-		fmt.Printf("sys err: %#v\n", sysErr)
 		if sysErr.Syscall == "connect" {
 			return false
 		}
