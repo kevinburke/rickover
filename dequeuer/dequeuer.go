@@ -246,7 +246,7 @@ func (p *Pool) Len() int {
 // Shutdown all workers in the pool.
 func (p *Pool) Shutdown(ctx context.Context) error {
 	p.cancel()
-	l := len(p.Dequeuers)
+	l := p.Len()
 	for i := 0; i < l; i++ {
 		err := p.RemoveDequeuer()
 		if err != nil {
