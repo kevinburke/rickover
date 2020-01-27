@@ -235,3 +235,22 @@ func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob,
 		}
 	}
 }
+
+func (jp *JobProcessor) Sleep(failedAttempts int32) time.Duration {
+	if failedAttempts <= 2 {
+		return 0
+	}
+	// this is not very scientific at all.
+	switch failedAttempts {
+	case 3, 4:
+		return 50 * time.Millisecond
+	case 5:
+		return 100 * time.Millisecond
+	case 6:
+		return 200 * time.Millisecond
+	case 7:
+		return 400 * time.Millisecond
+	default:
+		return time.Second
+	}
+}

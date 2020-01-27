@@ -192,6 +192,11 @@ type Worker interface {
 	// HandleStatusCallback with a failed callback; errors are logged, but
 	// otherwise nothing else is done with them.
 	DoWork(context.Context, *newmodels.QueuedJob) error
+
+	// Sleep returns the amount of time to sleep between failed attempts to
+	// acquire a queued job. The default implementation sleeps for 20, 40, 80,
+	// 160, ..., up to a maximum of 10 seconds between attempts.
+	Sleep(failedAttempts int32) time.Duration
 }
 
 // AddDequeuer adds a Dequeuer to the Pool. w should be the work that the
@@ -271,7 +276,7 @@ func (p *Pool) Shutdown(ctx context.Context) error {
 
 func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	failedAcquireCount := uint32(0)
+	failedAcquireCount := int32(0)
 	waitDuration := time.Duration(0)
 	for {
 		select {
@@ -295,7 +300,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 				}
 			} else {
 				failedAcquireCount++
-				waitDuration = time.Duration(0)
+				waitDuration = d.W.Sleep(failedAcquireCount)
 			}
 		}
 	}

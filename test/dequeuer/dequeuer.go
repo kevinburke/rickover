@@ -37,3 +37,6 @@ func (dp *channelProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob)
 		return errors.New("channel send timed out")
 	}
 }
+func (dp *channelProcessor) Sleep(_ int32) time.Duration {
+	return 0
+}
