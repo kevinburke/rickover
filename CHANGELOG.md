@@ -41,6 +41,10 @@ dequeuer, the stuck job watcher, and all metrics observers.
 with what's in the database, previously we would return a 500. Now we catch the
 error and return an appropriate 400.
 
+- Use log15 instead of the standard library logger. Some functions now accept
+a `log.Logger` as an argument. Use `log15.New()` to create a Logger to pass to
+these functions.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't

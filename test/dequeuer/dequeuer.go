@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/rickover/newmodels"
 )
 
@@ -19,12 +20,13 @@ func (dp *DummyProcessor) DoWork(context.Context, *newmodels.QueuedJob) error {
 	return nil
 }
 
-type ChannelProcessor struct {
+type channelProcessor struct {
+	log.Logger
 	Count int64
 	Ch    chan struct{}
 }
 
-func (dp *ChannelProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) error {
+func (dp *channelProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

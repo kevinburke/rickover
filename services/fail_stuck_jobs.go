@@ -2,16 +2,16 @@ package services
 
 import (
 	"context"
-	"log"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 )
 
 // ArchiveStuckJobs marks as failed any queued jobs with an updated_at
 // timestamp older than the olderThan value.
-func ArchiveStuckJobs(ctx context.Context, olderThan time.Duration) error {
+func ArchiveStuckJobs(ctx context.Context, logger log.Logger, olderThan time.Duration) error {
 	var olderThanTime time.Time
 	if olderThan >= 0 {
 		olderThanTime = time.Now().Add(-1 * olderThan)
@@ -29,12 +29,12 @@ func ArchiveStuckJobs(ctx context.Context, olderThan time.Duration) error {
 		defer cancel()
 		err = HandleStatusCallback(handleCtx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		if err == nil {
-			log.Printf("Found stuck job %s and marked it as failed", qj.ID.String())
+			logger.Info("found stuck job and marked it as failed", "id", qj.ID.String())
 		} else {
 			// We don't want to return an error here since there may easily be
 			// race/idempotence errors with a stuck job watcher. If it errors
 			// we'll grab it with the next cron.
-			log.Printf("Found stuck job %s but could not process it: %s", qj.ID.String(), err.Error())
+			logger.Error("found stuck job but could not process it", "id", qj.ID.String(), "err", err)
 		}
 	}
 	return nil
@@ -43,13 +43,13 @@ func ArchiveStuckJobs(ctx context.Context, olderThan time.Duration) error {
 // WatchStuckJobs polls the queued_jobs table for stuck jobs (defined as
 // in-progress jobs that haven't been updated in oldDuration time), and marks
 // them as failed.
-func WatchStuckJobs(ctx context.Context, interval time.Duration, olderThan time.Duration) {
+func WatchStuckJobs(ctx context.Context, logger log.Logger, interval time.Duration, olderThan time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
-		err := ArchiveStuckJobs(ctx, olderThan)
+		err := ArchiveStuckJobs(ctx, logger, olderThan)
 		if err != nil {
-			log.Printf("Error archiving stuck jobs: %s\n", err.Error())
+			logger.Error("could not archive stuck jobs", "err", err)
 		}
 		select {
 		case <-ticker.C:

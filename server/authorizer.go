@@ -113,13 +113,13 @@ func handleAuthorizeError(w http.ResponseWriter, r *http.Request, err error) {
 			return
 		}
 		if err.Status == http.StatusInternalServerError || err.ID == "server_error" {
-			writeServerError(w, r, err)
+			rest.ServerError(w, r, err)
 			return
 		}
 		w.WriteHeader(err.Status)
 		json.NewEncoder(w).Encode(err)
 		return
 	default:
-		writeServerError(w, r, err)
+		rest.ServerError(w, r, err)
 	}
 }

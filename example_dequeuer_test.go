@@ -14,10 +14,10 @@ package rickover
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 
+	log "github.com/inconshreveable/log15"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
@@ -34,7 +34,7 @@ func init() {
 	var err error
 	dbConns, err = config.GetInt("PG_WORKER_POOL_SIZE")
 	if err != nil {
-		log.Printf("Error getting database pool size: %s. Defaulting to 20", err)
+		log.Info("Error getting database pool size: %s. Defaulting to 20", err)
 		dbConns = 20
 	}
 
@@ -52,8 +52,9 @@ func Example_dequeuer() {
 		cancel()
 	}()
 
+	logger := log.New()
 	downstreamUrl = config.GetURLOrBail("DOWNSTREAM_URL").String()
-	jp := services.NewJobProcessor(services.NewDownstreamHandler(downstreamUrl, downstreamPassword))
+	jp := services.NewJobProcessor(services.NewDownstreamHandler(logger, downstreamUrl, downstreamPassword))
 
 	metrics.Start("worker", "TODO@example.com")
 
@@ -64,7 +65,7 @@ func Example_dequeuer() {
 		StuckJobTimeout: dequeuer.DefaultStuckJobTimeout,
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Info("could not start dequeuer", "err", err)
 	}
 	// Run will:
 	//
@@ -73,7 +74,8 @@ func Example_dequeuer() {
 	// - start metrics to monitor in progress jobs, active queries against the
 	// database, and the depth of the queue.
 	if err := srv.Run(ctx); err != nil && err != context.Canceled {
-		log.Fatal(err)
+		log.Error("error running dequeuer", "err", err)
+		os.Exit(2)
 	}
-	log.Println("All pools shut down. Quitting.")
+	log.Info("All pools shut down. Quitting.")
 }

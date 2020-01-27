@@ -229,7 +229,7 @@ func getJobType() http.Handler {
 				notFound(w, new404(r))
 				return
 			}
-			writeServerError(w, r, err)
+			rest.ServerError(w, r, err)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
@@ -244,7 +244,7 @@ func getJobType() http.Handler {
 func createJob() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
-			badRequest(w, r, createEmptyErr("name", r.URL.Path))
+			rest.BadRequest(w, r, createEmptyErr("name", r.URL.Path))
 			return
 		}
 		defer r.Body.Close()
@@ -252,18 +252,18 @@ func createJob() http.Handler {
 		// XXX check for content-type
 		err := json.NewDecoder(r.Body).Decode(&jr)
 		if err != nil {
-			badRequest(w, r, &rest.Error{
+			rest.BadRequest(w, r, &rest.Error{
 				ID:    "invalid_request",
 				Title: "Invalid request: bad JSON. Double check the types of the fields you sent",
 			})
 			return
 		}
 		if jr.Name == "" {
-			badRequest(w, r, createEmptyErr("name", r.URL.Path))
+			rest.BadRequest(w, r, createEmptyErr("name", r.URL.Path))
 			return
 		}
 		if jr.DeliveryStrategy == newmodels.DeliveryStrategy("") {
-			badRequest(w, r, createEmptyErr("delivery_strategy", r.URL.Path))
+			rest.BadRequest(w, r, createEmptyErr("delivery_strategy", r.URL.Path))
 			return
 		}
 		if jr.DeliveryStrategy != newmodels.DeliveryStrategyAtLeastOnce && jr.DeliveryStrategy != newmodels.DeliveryStrategyAtMostOnce {
@@ -272,7 +272,7 @@ func createJob() http.Handler {
 				ID:       "invalid_delivery_strategy",
 				Title:    fmt.Sprintf("Invalid delivery strategy: %s", jr.DeliveryStrategy),
 			}
-			badRequest(w, r, err)
+			rest.BadRequest(w, r, err)
 			return
 		}
 
@@ -283,16 +283,16 @@ func createJob() http.Handler {
 				Title:    "Cannot set retry attempts to a number greater than 1 if the delivery strategy is at_most_once",
 				Detail:   "The at_most_once strategy implies only one attempt will be made.",
 			}
-			badRequest(w, r, err)
+			rest.BadRequest(w, r, err)
 			return
 		}
 
 		if jr.Attempts == 0 {
-			badRequest(w, r, createPositiveIntErr("Attempts", r.URL.Path))
+			rest.BadRequest(w, r, createPositiveIntErr("Attempts", r.URL.Path))
 			return
 		}
 		if jr.Concurrency == 0 {
-			badRequest(w, r, createPositiveIntErr("Concurrency", r.URL.Path))
+			rest.BadRequest(w, r, createPositiveIntErr("Concurrency", r.URL.Path))
 			return
 		}
 
@@ -318,10 +318,10 @@ func createJob() http.Handler {
 					ID:       "invalid_parameter",
 					Instance: r.URL.Path,
 				}
-				badRequest(w, r, apierr)
+				rest.BadRequest(w, r, apierr)
 				return
 			default:
-				writeServerError(w, r, err)
+				rest.ServerError(w, r, err)
 				return
 			}
 		}
@@ -408,7 +408,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != queued_jobs.ErrNotFound {
-		writeServerError(w, r, err)
+		rest.ServerError(w, r, err)
 		go metrics.Increment("job.get.queued.error")
 		return
 	}
@@ -420,7 +420,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		writeServerError(w, r, err)
+		rest.ServerError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -436,21 +436,21 @@ type jobEnqueuer struct{}
 // Enqueue a new job.
 func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil {
-		badRequest(w, r, createEmptyErr("data", r.URL.Path))
+		rest.BadRequest(w, r, createEmptyErr("data", r.URL.Path))
 		return
 	}
 	defer r.Body.Close()
 	var ejr EnqueueJobRequest
 	err := json.NewDecoder(r.Body).Decode(&ejr)
 	if err != nil {
-		badRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &rest.Error{
 			ID:    "invalid_request",
 			Title: "Invalid request: bad JSON. Double check the types of the fields you sent",
 		})
 		return
 	}
 	if ejr.Data == nil {
-		badRequest(w, r, createEmptyErr("data", r.URL.Path))
+		rest.BadRequest(w, r, createEmptyErr("data", r.URL.Path))
 		return
 	}
 	if !ejr.RunAfter.Valid {
@@ -470,7 +470,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if idStr == "random_id" {
 		id = types.GenerateUUID("job_")
 		if err != nil {
-			writeServerError(w, r, err)
+			rest.ServerError(w, r, err)
 			return
 		}
 	} else {
@@ -513,7 +513,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					ID:       "job_already_archived",
 					Instance: fmt.Sprintf("/v1/jobs/%s/%s", name, id.String()),
 				}
-				badRequest(w, r, alreadyArchived)
+				rest.BadRequest(w, r, alreadyArchived)
 				metrics.Increment("enqueue.error.already_archived")
 				return
 			}
@@ -521,7 +521,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if terr.Code == "23505" {
 				queuedJob, err = queued_jobs.Get(r.Context(), id)
 				if err != nil {
-					writeServerError(w, r, err)
+					rest.ServerError(w, r, err)
 					return
 				}
 				break
@@ -531,11 +531,11 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				ID:       "invalid_parameter",
 				Instance: r.URL.Path,
 			}
-			badRequest(w, r, apierr)
+			rest.BadRequest(w, r, apierr)
 			metrics.Increment(fmt.Sprintf("enqueue.%s.failure", name))
 			return
 		default:
-			writeServerError(w, r, err)
+			rest.ServerError(w, r, err)
 			metrics.Increment(fmt.Sprintf("enqueue.%s.error", name))
 			return
 		}

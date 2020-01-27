@@ -10,6 +10,7 @@ import (
 	"os/signal"
 
 	metrics "github.com/kevinburke/go-simple-metrics"
+	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/services"
@@ -24,6 +25,7 @@ func checkError(err error) {
 
 func main() {
 	flag.Parse()
+	logger := handlers.Logger
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		sigterm := make(chan os.Signal, 1)
@@ -52,9 +54,9 @@ func main() {
 	parsedUrl := config.GetURLOrBail("DOWNSTREAM_URL")
 	downstreamPassword := os.Getenv("DOWNSTREAM_WORKER_AUTH")
 	if downstreamPassword == "" {
-		log.Printf("No DOWNSTREAM_WORKER_AUTH configured, setting an empty password for auth")
+		logger.Warn("No DOWNSTREAM_WORKER_AUTH configured, setting an empty password for auth")
 	}
-	handler := services.NewDownstreamHandler(parsedUrl.String(), downstreamPassword)
+	handler := services.NewDownstreamHandler(logger, parsedUrl.String(), downstreamPassword)
 	srv, err := dequeuer.New(ctx, dequeuer.Config{
 		NumConns:        dbConns,
 		Processor:       services.NewJobProcessor(handler),
@@ -63,7 +65,8 @@ func main() {
 	checkError(err)
 
 	if err := srv.Run(ctx); err != nil && err != context.Canceled {
-		log.Fatal(err)
+		logger.Error("error running dequeuer", "err", err)
+		os.Exit(1)
 	}
-	log.Println("All pools shut down. Quitting.")
+	logger.Info("All pools shut down. Quitting.")
 }

@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strings"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/downstream"
@@ -28,6 +28,7 @@ var DefaultTimeout = 5 * time.Minute
 
 // JobProcessor is the default implementation of the Worker interface.
 type JobProcessor struct {
+	log.Logger
 	// Amount of time we should wait for the Handler to perform the work before
 	// marking the job as failed.
 	Timeout time.Duration
@@ -36,18 +37,20 @@ type JobProcessor struct {
 }
 
 type Handler interface {
+	log.Logger
 	// Handle is responsible for notifying some downstream thing that there is
 	// work to be done.
 	Handle(context.Context, *newmodels.QueuedJob) error
 }
 
 type DownstreamHandler struct {
+	log.Logger
 	// A Client for making requests to the downstream server.
 	client *downstream.Client
 }
 
 func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob) error {
-	log.Printf("processing job %s (type %s)", qj.ID.String(), qj.Name)
+	d.Info("processing job", "id", qj.ID.String(), "type", qj.Name)
 	for i := uint8(0); i < 3; i++ {
 		if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
 			return createAndDelete(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
@@ -78,7 +81,7 @@ func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob)
 					if reachedRemoteServer(err) {
 						metrics.Increment("dequeue.post_job.timeout")
 					} else {
-						log.Printf("Unknown error making POST request to downstream server: %q (%#v)", err, err)
+						d.Error("error making POST request to downstream server", "err", err)
 						metrics.Increment("dequeue.post_job.error_unknown")
 					}
 				}(err)
@@ -89,8 +92,9 @@ func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob)
 	return nil
 }
 
-func NewDownstreamHandler(downstreamUrl string, downstreamPassword string) *DownstreamHandler {
+func NewDownstreamHandler(logger log.Logger, downstreamUrl string, downstreamPassword string) *DownstreamHandler {
 	return &DownstreamHandler{
+		Logger: logger,
 		client: downstream.NewClient("jobs", downstreamPassword, downstreamUrl),
 	}
 }
@@ -106,6 +110,7 @@ func NewDownstreamHandler(downstreamUrl string, downstreamPassword string) *Down
 // has elapsed.
 func NewJobProcessor(h Handler) *JobProcessor {
 	return &JobProcessor{
+		Logger:  h,
 		Timeout: DefaultTimeout,
 		Handler: h,
 	}
@@ -157,18 +162,18 @@ func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) err
 			// server received it and will handle it. we see this most often
 			// when the downstream server restarts. Heroku receives/queues the
 			// requests until the new server is ready, and we see a timeout.
-			return waitForJob(ctx, qj, jp.Timeout)
+			return waitForJob(ctx, jp.Logger, qj, jp.Timeout)
 		} else {
 			// Assume the request failed.
 			return HandleStatusCallback(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		}
 	}
-	return waitForJob(ctx, qj, jp.Timeout)
+	return waitForJob(ctx, jp.Logger, qj, jp.Timeout)
 }
 
 // waitForJob waits for another thread to update the status of the job in
 // the queued_jobs table.
-func waitForJob(ctx context.Context, qj *newmodels.QueuedJob, failTimeout time.Duration) error {
+func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 	start := time.Now()
 	// This is not going to change but we continually overwrite qj
 	name := qj.Name
@@ -185,17 +190,16 @@ func waitForJob(ctx context.Context, qj *newmodels.QueuedJob, failTimeout time.D
 		select {
 		case <-tctx.Done():
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
-			log.Printf("5 minutes elapsed, marking %s (type %s) as failed", idStr, name)
+			logger.Info("timeout exceeded, marking job as failed", "id", idStr, "type", name)
 			err := HandleStatusCallback(ctx, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
 			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
-			log.Printf("job %s (type %s) timed out after waiting for %v", idStr, name, time.Since(start))
 			if err == sql.ErrNoRows {
 				// Attempted to decrement the failed count, but couldn't do so;
 				// we assume another thread got here before we did.
 				return nil
 			}
 			if err != nil {
-				log.Printf("error marking job %s as failed: %s\n", idStr, err.Error())
+				logger.Error("error marking job as failed", "id", idStr, "err", err)
 				go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed.error", name))
 			}
 			return err
@@ -214,7 +218,7 @@ func waitForJob(ctx context.Context, qj *newmodels.QueuedJob, failTimeout time.D
 					duration := time.Since(start)
 					// Default print method has too many decimals
 					roundDuration := duration - duration%(time.Millisecond/10)
-					log.Printf("job %s (type %s) completed after %s", idStr, name, roundDuration)
+					logger.Info("job completed", "id", idStr, "name", name, "duration", roundDuration)
 				}(name, start, idStr, queryCount)
 				return nil
 			} else if err != nil {
@@ -225,7 +229,7 @@ func waitForJob(ctx context.Context, qj *newmodels.QueuedJob, failTimeout time.D
 				// the job, we're done.
 				go metrics.Time(fmt.Sprintf("wait_for_job.%s.latency", name), time.Since(start))
 				go metrics.Increment(fmt.Sprintf("wait_for_job.%s.attempt_count_decremented", name))
-				log.Printf("job %s (type %s) failed after %v, retrying", idStr, name, time.Since(start))
+				logger.Info("job failed, retrying", "id", idStr, "type", name, "duration", time.Since(start))
 				return nil
 			}
 		}

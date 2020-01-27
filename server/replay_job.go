@@ -39,7 +39,7 @@ func replayHandler() http.Handler {
 					ID:       "invalid_replay_attempt",
 					Instance: r.URL.Path,
 				}
-				badRequest(w, r, apierr)
+				rest.BadRequest(w, r, apierr)
 				return
 			}
 			jobName = qj.Name
@@ -56,12 +56,12 @@ func replayHandler() http.Handler {
 				go metrics.Increment("job.replay.not_found")
 				return
 			} else {
-				writeServerError(w, r, err)
+				rest.ServerError(w, r, err)
 				go metrics.Increment("job.replay.get.error")
 				return
 			}
 		} else {
-			writeServerError(w, r, err)
+			rest.ServerError(w, r, err)
 			go metrics.Increment("job.replay.get.error")
 			return
 		}
@@ -81,7 +81,7 @@ func replayHandler() http.Handler {
 			ID: newId, Name: jobName, RunAfter: time.Now(), ExpiresAt: expiresAt, Data: data,
 		})
 		if err != nil {
-			writeServerError(w, r, err)
+			rest.ServerError(w, r, err)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)

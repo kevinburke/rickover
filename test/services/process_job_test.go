@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/models/archived_jobs"
@@ -41,6 +42,12 @@ func newParams(id types.PrefixUUID, name string, runAfter time.Time, expiresAt t
 	}
 }
 
+var nullLogger = log.New()
+
+func init() {
+	nullLogger.SetHandler(log.DiscardHandler())
+}
+
 func testExpiredJobNotEnqueued(t *testing.T) {
 	t.Parallel()
 
@@ -50,7 +57,7 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 		c1 <- true
 	}))
 	defer s.Close()
-	jp := services.NewJobProcessor(services.NewDownstreamHandler(s.URL, "password"))
+	jp := services.NewJobProcessor(services.NewDownstreamHandler(nullLogger, s.URL, "password"))
 
 	_, err := jobs.Create(factory.SampleJob)
 	test.AssertNotError(t, err, "")
@@ -144,7 +151,7 @@ func TestWorkerWaitsRequestTimeout(t *testing.T) {
 	}))
 	defer s.Close()
 
-	handler := services.NewDownstreamHandler(s.URL, "password")
+	handler := services.NewDownstreamHandler(nullLogger, s.URL, "password")
 	jp := services.NewJobProcessor(handler)
 
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
@@ -167,6 +174,7 @@ func TestWorkerDoesNotWaitConnectionFailure(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
 	handler := services.NewDownstreamHandler(
+		nullLogger,
 		// TODO, add empty port finder
 		"http://127.0.0.1:29656",
 		"password",

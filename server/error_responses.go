@@ -5,7 +5,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/kevinburke/rest"
@@ -72,12 +71,6 @@ func notFound(w http.ResponseWriter, err *rest.Error) {
 	json.NewEncoder(w).Encode(err)
 }
 
-func badRequest(w http.ResponseWriter, r *http.Request, err *rest.Error) {
-	log.Printf("400: %s %s: %s", r.Method, r.URL.Path, err.Error())
-	w.WriteHeader(http.StatusBadRequest)
-	json.NewEncoder(w).Encode(err)
-}
-
 func authenticate(w http.ResponseWriter, err *rest.Error) {
 	w.Header().Set("WWW-Authenticate", "Basic realm=\"rickover\"")
 	w.WriteHeader(http.StatusUnauthorized)
@@ -93,12 +86,4 @@ var serverError = rest.Error{
 	Status: http.StatusInternalServerError,
 	ID:     "server_error",
 	Title:  "Unexpected server error. Please try again",
-}
-
-// writeServerError logs the provided error, and returns a generic server error
-// message to the client.
-func writeServerError(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("500: %s %s: %s", r.Method, r.URL.Path, err)
-	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(serverError)
 }

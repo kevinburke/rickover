@@ -1,19 +1,16 @@
 package dequeuer
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
@@ -195,14 +192,6 @@ func TestCreatePools(t *testing.T) {
 }
 
 func runDQBench(b *testing.B, populate bool, concurrency int16) {
-	buf := new(bytes.Buffer)
-	log.SetOutput(buf)
-	defer func() {
-		if b.Failed() {
-			io.Copy(os.Stdout, buf)
-		}
-		log.SetOutput(os.Stdout)
-	}()
 	test.SetUp(b)
 	// defer test.TearDown(b)
 	data, _ := json.Marshal(factory.RD)
@@ -231,8 +220,11 @@ func runDQBench(b *testing.B, populate bool, concurrency int16) {
 		}
 		wg.Wait()
 	}
-	w := &ChannelProcessor{
-		Ch: make(chan struct{}, 1000),
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+	w := &channelProcessor{
+		Logger: logger,
+		Ch:     make(chan struct{}, 1000),
 	}
 	b.ResetTimer()
 	b.ReportAllocs()

@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math/rand"
 	"sync"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"
@@ -87,7 +87,7 @@ func (w *WorkServer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		// Every minute, check for in-progress jobs that haven't been updated for
 		// 7 minutes, and mark them as failed.
-		services.WatchStuckJobs(errctx, 1*time.Minute, w.stuckJobTimeout)
+		services.WatchStuckJobs(errctx, w.processor, 1*time.Minute, w.stuckJobTimeout)
 		return nil
 	})
 	return group.Wait()
@@ -137,7 +137,7 @@ func CreatePools(ctx context.Context, w Worker, maxInitialJitter time.Duration) 
 					time.Sleep(time.Duration(rand.Float64()) * maxInitialJitter)
 					err := p.AddDequeuer(ctx, w)
 					if err != nil {
-						log.Print(err)
+						w.Error("could not add dequeuer", "err", err)
 					}
 					return err
 				})
@@ -167,6 +167,7 @@ type Pool struct {
 }
 
 type Dequeuer struct {
+	log.Logger
 	ID     int
 	W      Worker
 	ctx    context.Context
@@ -176,6 +177,7 @@ type Dequeuer struct {
 // A Worker does some work with a QueuedJob. Worker implementations may be
 // shared and should be threadsafe.
 type Worker interface {
+	log.Logger
 	// DoWork is responsible for performing work and either updating the job
 	// status in the database or waiting for the status to be updated by
 	// another thread. Success and failure for the job are marked by hitting
@@ -204,6 +206,7 @@ func (p *Pool) AddDequeuer(ctx context.Context, w Worker) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	d := &Dequeuer{
+		Logger: w,
 		ID:     len(p.Dequeuers) + 1,
 		W:      w,
 		ctx:    tctx,
@@ -273,7 +276,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-d.ctx.Done():
-			log.Printf("%s worker %d quitting\n", name, d.ID)
+			d.Info("worker quitting", "name", name, "id", d.ID)
 			return
 
 		case <-time.After(waitDuration):
@@ -285,7 +288,7 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 				waitDuration = time.Duration(0)
 				err = d.W.DoWork(d.ctx, qj)
 				if err != nil {
-					log.Printf("worker: Error processing job %s: %s", qj.ID.String(), err)
+					d.Error("could not process job", "id", qj.ID.String(), "err", err)
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.error", name))
 				} else {
 					go metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))

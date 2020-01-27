@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/go-types"
 	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/models/archived_jobs"
@@ -181,8 +182,11 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.
 // Processor returns a simple JobProcessor, with a client pointing at the given
 // URL, password set to "password" and various sleeps set to 0.
 func Processor(url string) *services.JobProcessor {
-	handler := services.NewDownstreamHandler(url, "password")
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+	handler := services.NewDownstreamHandler(logger, url, "password")
 	return &services.JobProcessor{
+		Logger:  logger,
 		Timeout: 200 * time.Millisecond,
 		Handler: handler,
 	}
