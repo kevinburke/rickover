@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -32,6 +33,16 @@ func (h *Regexp) Handle(pattern *regexp.Regexp, methods []string, handler http.H
 	})
 }
 
+// HandleString is like Handle, but will compile s to a regexp first.
+// If s is not a valid regexp HandleString will panic.
+func (h *Regexp) HandleString(s string, methods []string, handler http.Handler) {
+	rx, err := regexp.Compile(s)
+	if err != nil {
+		panic(fmt.Sprintf("handlers: could not compile pattern %q to a regex: got error %v", s, err))
+	}
+	h.Handle(rx, methods, handler)
+}
+
 // HandleFunc calls the provided HandlerFunc for requests whose URL matches the
 // given pattern and HTTP method. The first matching route will get called.
 // If methods is nil, all HTTP methods are allowed. If GET is in the list of
@@ -42,6 +53,16 @@ func (h *Regexp) HandleFunc(pattern *regexp.Regexp, methods []string, handler fu
 		methods: methods,
 		handler: http.HandlerFunc(handler),
 	})
+}
+
+// HandleStringFunc is like HandleFunc, but will compile s to a regexp first.
+// If s is not a valid regexp HandleStringFunc will panic.
+func (h *Regexp) HandleStringFunc(s string, methods []string, handler func(http.ResponseWriter, *http.Request)) {
+	rx, err := regexp.Compile(s)
+	if err != nil {
+		panic(fmt.Sprintf("handlers: could not compile pattern %q to a regex: got error %v", s, err))
+	}
+	h.HandleFunc(rx, methods, handler)
 }
 
 var allMethods = []string{

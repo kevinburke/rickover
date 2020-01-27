@@ -25,7 +25,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/kevinburke/go.uuid"
+	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rest"
 )
 
@@ -58,6 +58,7 @@ type serverWriter struct {
 }
 
 func (s *serverWriter) WriteHeader(code int) {
+	//lint:ignore S1002 prefer it this way
 	if s.wroteHeader == false {
 		s.w.Header().Set("Server", s.name)
 		s.wroteHeader = true
@@ -66,6 +67,7 @@ func (s *serverWriter) WriteHeader(code int) {
 }
 
 func (s *serverWriter) Write(b []byte) (int, error) {
+	//lint:ignore S1002 prefer it this way
 	if s.wroteHeader == false {
 		s.w.Header().Set("Server", s.name)
 		s.wroteHeader = true
@@ -103,6 +105,7 @@ func Server(h http.Handler, serverName string) http.Handler {
 			wroteHeader: false,
 		}
 		h.ServeHTTP(sw, r)
+		//lint:ignore S1002 prefer it this way
 		if sw.wroteHeader == false {
 			sw.w.Header().Set("Server", sw.name)
 			sw.wroteHeader = true
@@ -157,42 +160,42 @@ func BasicAuth(h http.Handler, realm string, users map[string]string) http.Handl
 }
 
 // Debug prints debugging information about the request to stdout if the
-// DEBUG_HTTP_TRAFFIC environment variable is set to true.
+// DEBUG_HTTP_TRAFFIC environment variable is set to "true".
 func Debug(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if os.Getenv("DEBUG_HTTP_TRAFFIC") == "true" {
-			// You need to write the entire thing in one Write, otherwise the
-			// output will be jumbled with other requests.
-			b := new(bytes.Buffer)
-			bits, err := httputil.DumpRequest(r, true)
-			if err != nil {
-				_, _ = b.WriteString(err.Error())
-			} else {
-				if w.Header().Get("Content-Encoding") == "gzip" {
-					_, _ = b.WriteString("[binary data omitted]")
-				} else {
-					_, _ = b.Write(bits)
-				}
-			}
-			res := httptest.NewRecorder()
-			h.ServeHTTP(res, r)
-
-			_, _ = b.WriteString(fmt.Sprintf("HTTP/1.1 %d\r\n", res.Code))
-			_ = res.HeaderMap.Write(b)
-			for k, v := range res.HeaderMap {
-				w.Header()[k] = v
-			}
-			w.WriteHeader(res.Code)
-			_, _ = b.WriteString("\r\n")
-			writer := io.MultiWriter(w, b)
-			_, _ = res.Body.WriteTo(writer)
-			if w.Header().Get("Content-Encoding") == "gzip" {
-				os.Stderr.WriteString("[binary data omitted]")
-			} else {
-				_, _ = b.WriteTo(os.Stderr)
-			}
-		} else {
+		if os.Getenv("DEBUG_HTTP_TRAFFIC") != "true" {
 			h.ServeHTTP(w, r)
+			return
+		}
+		// You need to write the entire thing in one Write, otherwise the
+		// output will be jumbled with other requests.
+		b := new(bytes.Buffer)
+		bits, err := httputil.DumpRequest(r, true)
+		if err != nil {
+			_, _ = b.WriteString(err.Error())
+		} else {
+			if w.Header().Get("Content-Encoding") == "gzip" {
+				_, _ = b.WriteString("[binary data omitted]")
+			} else {
+				_, _ = b.Write(bits)
+			}
+		}
+		res := httptest.NewRecorder()
+		h.ServeHTTP(res, r)
+
+		_, _ = b.WriteString(fmt.Sprintf("HTTP/1.1 %d\r\n", res.Code))
+		_ = res.Header().Write(b)
+		for k, v := range res.Header() {
+			w.Header()[k] = v
+		}
+		w.WriteHeader(res.Code)
+		_, _ = b.WriteString("\r\n")
+		writer := io.MultiWriter(w, b)
+		_, _ = res.Body.WriteTo(writer)
+		if w.Header().Get("Content-Encoding") == "gzip" {
+			os.Stderr.WriteString("[binary data omitted]")
+		} else {
+			_, _ = b.WriteTo(os.Stderr)
 		}
 	})
 }
@@ -251,29 +254,10 @@ type hijackLogger struct {
 	responseLogger
 }
 
-type hijackCloseNotifier struct {
-	loggingResponseWriter
-	http.Hijacker
-	http.CloseNotifier
-}
-
-type closeNotifyWriter struct {
-	loggingResponseWriter
-	http.CloseNotifier
-}
-
 func makeLogger(w http.ResponseWriter) loggingResponseWriter {
 	var logger loggingResponseWriter = &responseLogger{w: w}
 	if _, ok := w.(http.Hijacker); ok {
 		logger = &hijackLogger{responseLogger{w: w}}
-	}
-	h, ok1 := logger.(http.Hijacker)
-	c, ok2 := w.(http.CloseNotifier)
-	if ok1 && ok2 {
-		return hijackCloseNotifier{logger, h, c}
-	}
-	if ok2 {
-		return &closeNotifyWriter{logger, c}
 	}
 	return logger
 }

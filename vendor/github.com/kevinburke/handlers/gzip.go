@@ -17,7 +17,6 @@ type compressResponseWriter struct {
 	http.ResponseWriter
 	http.Hijacker
 	http.Flusher
-	http.CloseNotifier
 }
 
 func (w *compressResponseWriter) WriteHeader(c int) {
@@ -98,17 +97,11 @@ func compressHandlerLevel(h http.Handler, level int) http.Handler {
 					f = nil
 				}
 
-				cn, cnok := w.(http.CloseNotifier)
-				if !cnok {
-					cn = nil
-				}
-
 				w = &compressResponseWriter{
 					Writer:         gw,
 					ResponseWriter: w,
 					Hijacker:       h,
 					Flusher:        f,
-					CloseNotifier:  cn,
 				}
 
 				break L
@@ -129,17 +122,11 @@ func compressHandlerLevel(h http.Handler, level int) http.Handler {
 					f = nil
 				}
 
-				cn, cnok := w.(http.CloseNotifier)
-				if !cnok {
-					cn = nil
-				}
-
 				w = &compressResponseWriter{
 					Writer:         fw,
 					ResponseWriter: w,
 					Hijacker:       h,
 					Flusher:        f,
-					CloseNotifier:  cn,
 				}
 
 				break L

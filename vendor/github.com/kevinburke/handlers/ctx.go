@@ -76,6 +76,7 @@ func (s *startWriter) duration() string {
 }
 
 func (s *startWriter) WriteHeader(code int) {
+	//lint:ignore S1002 prefer it this way
 	if s.wroteHeader == false {
 		s.w.Header().Set("X-Request-Duration", s.duration())
 		s.wroteHeader = true
@@ -86,6 +87,7 @@ func (s *startWriter) WriteHeader(code int) {
 func (s *startWriter) Write(b []byte) (int, error) {
 	// Some chunked encoding transfers won't ever call WriteHeader(), so set
 	// the header here.
+	//lint:ignore S1002 prefer it this way
 	if s.wroteHeader == false {
 		s.w.Header().Set("X-Request-Duration", s.duration())
 		s.wroteHeader = true
@@ -116,6 +118,7 @@ func Duration(h http.Handler) http.Handler {
 		*r2 = *r
 		r2 = r2.WithContext(context.WithValue(r2.Context(), startTime, sw.start))
 		h.ServeHTTP(sw, r2)
+		//lint:ignore S1002 prefer it this way
 		if sw.wroteHeader == false {
 			// never called Write() or WriteHeader()
 			sw.w.Header().Set("X-Request-Duration", sw.duration())
@@ -126,8 +129,6 @@ func Duration(h http.Handler) http.Handler {
 
 // WithTimeout sets the given timeout in the Context of every incoming request
 // before passing it to the next handler.
-//
-// WithTimeout is only available for Go 1.7 and above.
 func WithTimeout(h http.Handler, timeout time.Duration) http.Handler {
 	if timeout < 0 {
 		panic("invalid timeout (negative number)")

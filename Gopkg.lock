@@ -10,12 +10,9 @@
   version = "v1.7.0"
 
 [[projects]]
-  digest = "1:f9b248303792091177b213a2395301ef041d5101365860ae90f80c8070b0b32c"
+  digest = "1:dacb152d24b21683403e82e4e397e973cdc218befff03b0eba8f7fbffcef325c"
   name = "github.com/inconshreveable/log15"
-  packages = [
-    ".",
-    "term",
-  ]
+  packages = ["."]
   pruneopts = "UT"
   revision = "0decfc6c20d9ca0ad143b0e89dcaa20f810b4fb3"
   version = "v2.13"
@@ -53,12 +50,12 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:f422dd8dfc34f33b6710d4c80cfadbe803741132d645f8435e62208c446a7289"
+  branch = "master"
+  digest = "1:6290255f5ec1537faa2b28889cccf74d7e4220d70cf8e41ba0068050e0019137"
   name = "github.com/kevinburke/handlers"
   packages = ["."]
   pruneopts = "UT"
-  revision = "428549f39100b53b9c7d155f703979b87137cb8c"
-  version = "0.39"
+  revision = "7b49e1fecbdf8e6fa5bf56acafa0d8a112392bc4"
 
 [[projects]]
   digest = "1:845499a098466583d495702a2945c19da6b5c6c436397726f00b4da1aee3da2e"
@@ -157,6 +154,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/inconshreveable/log15",
     "github.com/kevinburke/go-simple-metrics",
     "github.com/kevinburke/go-types",
     "github.com/kevinburke/go.uuid",
