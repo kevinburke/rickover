@@ -188,6 +188,9 @@ type Worker interface {
 	// service, and then for that service to make a HTTP callback to report
 	// success or failure.
 	//
+	// The Worker is responsible for returning an error if the ExpiresAt
+	// deadline is exceeded while the work is in progress.
+	//
 	// If DoWork is unable to get the work to be done, it should call
 	// HandleStatusCallback with a failed callback; errors are logged, but
 	// otherwise nothing else is done with them.
