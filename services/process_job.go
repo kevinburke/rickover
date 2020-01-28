@@ -51,10 +51,7 @@ type DownstreamHandler struct {
 
 func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob) error {
 	d.Info("processing job", "id", qj.ID.String(), "type", qj.Name)
-	for i := uint8(0); i < 3; i++ {
-		if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
-			return createAndDelete(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
-		}
+	for i := 0; i < 3; i++ {
 		params := &downstream.JobParams{
 			Data:     qj.Data,
 			Attempts: qj.Attempts,
@@ -144,6 +141,9 @@ func reachedRemoteServer(err error) bool {
 func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) error {
 	if jp == nil || jp.Handler == nil {
 		panic("cannot do work with nil Handler")
+	}
+	if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
+		return createAndDelete(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
 	}
 	var tctx context.Context
 	var cancel context.CancelFunc
