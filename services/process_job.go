@@ -58,20 +58,20 @@ func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob)
 		}
 		start := time.Now()
 		err := d.client.Job.Post(ctx, qj.Name, &qj.ID, params)
-		go metrics.Time("post_job.latency", time.Since(start))
-		go metrics.Time(fmt.Sprintf("post_job.%s.latency", qj.Name), time.Since(start))
+		metrics.Time("post_job.latency", time.Since(start))
+		metrics.Time(fmt.Sprintf("post_job.%s.latency", qj.Name), time.Since(start))
 		if err == nil {
-			go metrics.Increment(fmt.Sprintf("post_job.%s.accepted", qj.Name))
+			metrics.Increment(fmt.Sprintf("post_job.%s.accepted", qj.Name))
 			return nil
 		} else {
 			switch aerr := err.(type) {
 			case *rest.Error:
 				if aerr.ID == "service_unavailable" {
-					go metrics.Increment("post_job.unavailable")
+					metrics.Increment("post_job.unavailable")
 					time.Sleep(time.Duration(1<<i*UnavailableSleepFactor) * time.Millisecond)
 					continue
 				}
-				go metrics.Increment("dequeue.post_job.error")
+				metrics.Increment("dequeue.post_job.error")
 				return err
 			default:
 				go func(err error) {
@@ -189,10 +189,10 @@ func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob,
 	for {
 		select {
 		case <-tctx.Done():
-			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
+			metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
 			logger.Info("timeout exceeded, marking job as failed", "id", idStr, "type", name)
 			err := HandleStatusCallback(ctx, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
-			go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
+			metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
 			if err == sql.ErrNoRows {
 				// Attempted to decrement the failed count, but couldn't do so;
 				// we assume another thread got here before we did.
@@ -200,14 +200,14 @@ func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob,
 			}
 			if err != nil {
 				logger.Error("error marking job as failed", "id", idStr, "err", err)
-				go metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed.error", name))
+				metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed.error", name))
 			}
 			return err
 		default:
 			getStart := time.Now()
 			qj, err := queued_jobs.Get(tctx, qj.ID)
 			queryCount++
-			go metrics.Time("wait_for_job.get.latency", time.Since(getStart))
+			metrics.Time("wait_for_job.get.latency", time.Since(getStart))
 			if err == queued_jobs.ErrNotFound {
 				// inserted this job into archived_jobs. nothing to do!
 				go func(name string, start time.Time, idStr string, queryCount int64) {
@@ -227,8 +227,8 @@ func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob,
 			if qj.Attempts < currentAttemptCount {
 				// Another thread decremented the attempt count and re-queued
 				// the job, we're done.
-				go metrics.Time(fmt.Sprintf("wait_for_job.%s.latency", name), time.Since(start))
-				go metrics.Increment(fmt.Sprintf("wait_for_job.%s.attempt_count_decremented", name))
+				metrics.Time(fmt.Sprintf("wait_for_job.%s.latency", name), time.Since(start))
+				metrics.Increment(fmt.Sprintf("wait_for_job.%s.attempt_count_decremented", name))
 				logger.Info("job failed, retrying", "id", idStr, "type", name, "duration", time.Since(start))
 				return nil
 			}

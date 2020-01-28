@@ -46,9 +46,9 @@ func MeasureActiveQueries(ctx context.Context, interval time.Duration) {
 	for {
 		count, err := GetActiveQueries(ctx)
 		if err == nil {
-			go metrics.Measure("active_queries.count", count)
+			metrics.Measure("active_queries.count", count)
 		} else {
-			go metrics.Increment("active_queries.error")
+			metrics.Increment("active_queries.error")
 		}
 		select {
 		case <-ctx.Done():
@@ -64,10 +64,10 @@ func MeasureQueueDepth(ctx context.Context, interval time.Duration) {
 	for {
 		allCount, readyCount, err := queued_jobs.CountReadyAndAll(ctx)
 		if err == nil {
-			go metrics.Measure("queue_depth.all", int64(allCount))
-			go metrics.Measure("queue_depth.ready", int64(readyCount))
+			metrics.Measure("queue_depth.all", int64(allCount))
+			metrics.Measure("queue_depth.ready", int64(readyCount))
 		} else {
-			go metrics.Increment("queue_depth.error")
+			metrics.Increment("queue_depth.error")
 		}
 		select {
 		case <-ctx.Done():
@@ -86,11 +86,11 @@ func MeasureInProgressJobs(ctx context.Context, interval time.Duration) {
 			count := int64(0)
 			for k, v := range m {
 				count += v
-				go metrics.Measure(fmt.Sprintf("queued_jobs.%s.in_progress", k), v)
+				metrics.Measure(fmt.Sprintf("queued_jobs.%s.in_progress", k), v)
 			}
-			go metrics.Measure("queued_jobs.in_progress", count)
+			metrics.Measure("queued_jobs.in_progress", count)
 		} else {
-			go metrics.Increment("queued_jobs.in_progress.error")
+			metrics.Increment("queued_jobs.in_progress.error")
 		}
 		select {
 		case <-ctx.Done():

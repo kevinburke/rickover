@@ -53,16 +53,16 @@ func replayHandler() http.Handler {
 				expiresAt = aj.ExpiresAt
 			} else if err == archived_jobs.ErrNotFound {
 				notFound(w, new404(r))
-				go metrics.Increment("job.replay.not_found")
+				metrics.Increment("job.replay.not_found")
 				return
 			} else {
 				rest.ServerError(w, r, err)
-				go metrics.Increment("job.replay.get.error")
+				metrics.Increment("job.replay.get.error")
 				return
 			}
 		} else {
 			rest.ServerError(w, r, err)
-			go metrics.Increment("job.replay.get.error")
+			metrics.Increment("job.replay.get.error")
 			return
 		}
 

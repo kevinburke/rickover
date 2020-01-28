@@ -33,21 +33,21 @@ func HandleStatusCallback(ctx context.Context, id types.PrefixUUID, name string,
 	case newmodels.ArchivedJobStatusSucceeded:
 		err := createAndDelete(ctx, id, name, newmodels.ArchivedJobStatusSucceeded, attempt)
 		if err != nil {
-			go metrics.Increment("archived_job.create.success.error")
+			metrics.Increment("archived_job.create.success.error")
 		} else {
-			go metrics.Increment(fmt.Sprintf("archived_job.create.%s.success", name))
-			go metrics.Increment("archived_job.create.success")
-			go metrics.Increment("archived_job.create")
+			metrics.Increment(fmt.Sprintf("archived_job.create.%s.success", name))
+			metrics.Increment("archived_job.create.success")
+			metrics.Increment("archived_job.create")
 		}
 		return err
 	case newmodels.ArchivedJobStatusFailed:
 		err := handleFailedCallback(ctx, id, name, attempt, retryable)
 		if err != nil {
-			go metrics.Increment("archived_job.create.failed.error")
+			metrics.Increment("archived_job.create.failed.error")
 		} else {
-			go metrics.Increment(fmt.Sprintf("archived_job.create.%s.failed", name))
-			go metrics.Increment("archived_job.create.failed")
-			go metrics.Increment("archived_job.create")
+			metrics.Increment(fmt.Sprintf("archived_job.create.%s.failed", name))
+			metrics.Increment("archived_job.create.failed")
+			metrics.Increment("archived_job.create")
 		}
 		return err
 	default:
@@ -60,7 +60,7 @@ func HandleStatusCallback(ctx context.Context, id types.PrefixUUID, name string,
 func createAndDelete(ctx context.Context, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16) error {
 	start := time.Now()
 	_, err := archived_jobs.Create(ctx, id, name, status, attempt)
-	go metrics.Time("archived_job.create.latency", time.Since(start))
+	metrics.Time("archived_job.create.latency", time.Since(start))
 	if err != nil {
 		/*
 			case isUniqueViolation(): {
@@ -77,7 +77,7 @@ func createAndDelete(ctx context.Context, id types.PrefixUUID, name string, stat
 	}
 	start = time.Now()
 	err = queued_jobs.DeleteRetry(ctx, id, 3)
-	go metrics.Time("queued_job.delete.latency", time.Since(start))
+	metrics.Time("queued_job.delete.latency", time.Since(start))
 	return err
 }
 
@@ -106,7 +106,7 @@ func handleFailedCallback(ctx context.Context, id types.PrefixUUID, name string,
 		start := time.Now()
 		runAfter := getRunAfter(job.Attempts, remainingAttempts)
 		_, err := queued_jobs.Decrement(ctx, id, attempt, runAfter)
-		go metrics.Time("queued_jobs.decrement.latency", time.Since(start))
+		metrics.Time("queued_jobs.decrement.latency", time.Since(start))
 		// Possible the queued job exists but the attempt number doesn't line up
 		if err == sql.ErrNoRows {
 			return ErrFailedDecrement

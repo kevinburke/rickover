@@ -290,16 +290,16 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 		case <-time.After(waitDuration):
 			start := time.Now()
 			qj, err := queued_jobs.Acquire(context.TODO(), name, d.ID)
-			go metrics.Time("acquire.latency", time.Since(start))
+			metrics.Time("acquire.latency", time.Since(start))
 			if err == nil {
 				failedAcquireCount = 0
 				waitDuration = time.Duration(0)
 				err = d.W.DoWork(d.ctx, qj)
 				if err != nil {
 					d.Error("could not process job", "id", qj.ID.String(), "err", err)
-					go metrics.Increment(fmt.Sprintf("dequeue.%s.error", name))
+					metrics.Increment(fmt.Sprintf("dequeue.%s.error", name))
 				} else {
-					go metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))
+					metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))
 				}
 			} else {
 				failedAcquireCount++

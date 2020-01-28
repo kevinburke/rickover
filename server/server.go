@@ -309,7 +309,7 @@ func createJob() http.Handler {
 			Concurrency:      jobData.Concurrency,
 			Attempts:         jobData.Attempts,
 		})
-		go metrics.Time("type.create.latency", time.Since(start))
+		metrics.Time("type.create.latency", time.Since(start))
 		if err != nil {
 			switch terr := err.(type) {
 			case *pq.Error:
@@ -327,7 +327,7 @@ func createJob() http.Handler {
 		}
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(job)
-		go metrics.Increment("type.create.success")
+		metrics.Increment("type.create.success")
 	})
 }
 
@@ -403,20 +403,20 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(qj)
-		go metrics.Increment("job.get.queued.success")
+		metrics.Increment("job.get.queued.success")
 		return
 	}
 
 	if err != queued_jobs.ErrNotFound {
 		rest.ServerError(w, r, err)
-		go metrics.Increment("job.get.queued.error")
+		metrics.Increment("job.get.queued.error")
 		return
 	}
 
 	aj, err := archived_jobs.GetRetry(id, 3)
 	if err == archived_jobs.ErrNotFound {
 		notFound(w, new404(r))
-		go metrics.Increment("job.get.not_found")
+		metrics.Increment("job.get.not_found")
 		return
 	}
 	if err != nil {
@@ -425,7 +425,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(aj)
-	go metrics.Increment("job.get.archived.success")
+	metrics.Increment("job.get.archived.success")
 }
 
 // jobEnqueuer satisfies the Handler interface.
