@@ -82,9 +82,17 @@ func Get(ctx context.Context, id types.PrefixUUID) (*newmodels.QueuedJob, error)
 	return &qj, nil
 }
 
+func GetAttempts(ctx context.Context, id types.PrefixUUID) (int16, error) {
+	attempts, err := newmodels.DB.GetQueuedJobAttempts(ctx, id)
+	if err == sql.ErrNoRows {
+		return -1, ErrNotFound
+	}
+	return attempts, nil
+}
+
 // GetRetry attempts to retrieve the job attempts times before giving up.
-func GetRetry(ctx context.Context, id types.PrefixUUID, attempts uint8) (job *newmodels.QueuedJob, err error) {
-	for i := uint8(0); i < attempts; i++ {
+func GetRetry(ctx context.Context, id types.PrefixUUID, attempts int) (job *newmodels.QueuedJob, err error) {
+	for i := 0; i < attempts; i++ {
 		job, err = Get(ctx, id)
 		if err == nil || err == ErrNotFound || err == context.Canceled || err == context.DeadlineExceeded {
 			break

@@ -31,6 +31,11 @@ SELECT *
 FROM queued_jobs
 WHERE id = $1;
 
+-- name: GetQueuedJobAttempts :one
+SELECT attempts
+FROM queued_jobs
+WHERE id = $1;
+
 -- name: DeleteQueuedJob :many
 DELETE FROM queued_jobs
 WHERE id = $1

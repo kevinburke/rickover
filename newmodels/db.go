@@ -70,6 +70,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getQueuedJobStmt, err = db.PrepareContext(ctx, getQueuedJob); err != nil {
 		return nil, fmt.Errorf("error preparing query GetQueuedJob: %w", err)
 	}
+	if q.getQueuedJobAttemptsStmt, err = db.PrepareContext(ctx, getQueuedJobAttempts); err != nil {
+		return nil, fmt.Errorf("error preparing query GetQueuedJobAttempts: %w", err)
+	}
 	if q.markInProgressStmt, err = db.PrepareContext(ctx, markInProgress); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkInProgress: %w", err)
 	}
@@ -164,6 +167,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getQueuedJobStmt: %w", cerr)
 		}
 	}
+	if q.getQueuedJobAttemptsStmt != nil {
+		if cerr := q.getQueuedJobAttemptsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getQueuedJobAttemptsStmt: %w", cerr)
+		}
+	}
 	if q.markInProgressStmt != nil {
 		if cerr := q.markInProgressStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing markInProgressStmt: %w", cerr)
@@ -234,6 +242,7 @@ type Queries struct {
 	getOldInProgressJobsStmt    *sql.Stmt
 	getQueuedCountsByStatusStmt *sql.Stmt
 	getQueuedJobStmt            *sql.Stmt
+	getQueuedJobAttemptsStmt    *sql.Stmt
 	markInProgressStmt          *sql.Stmt
 	oldAcquireJobStmt           *sql.Stmt
 	truncateStmt                *sql.Stmt
@@ -259,6 +268,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getOldInProgressJobsStmt:    q.getOldInProgressJobsStmt,
 		getQueuedCountsByStatusStmt: q.getQueuedCountsByStatusStmt,
 		getQueuedJobStmt:            q.getQueuedJobStmt,
+		getQueuedJobAttemptsStmt:    q.getQueuedJobAttemptsStmt,
 		markInProgressStmt:          q.markInProgressStmt,
 		oldAcquireJobStmt:           q.oldAcquireJobStmt,
 		truncateStmt:                q.truncateStmt,

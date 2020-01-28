@@ -313,6 +313,19 @@ func (q *Queries) GetQueuedJob(ctx context.Context, id types.PrefixUUID) (Queued
 	return i, err
 }
 
+const getQueuedJobAttempts = `-- name: GetQueuedJobAttempts :one
+SELECT attempts
+FROM queued_jobs
+WHERE id = $1
+`
+
+func (q *Queries) GetQueuedJobAttempts(ctx context.Context, id types.PrefixUUID) (int16, error) {
+	row := q.queryRow(ctx, q.getQueuedJobAttemptsStmt, getQueuedJobAttempts, id)
+	var attempts int16
+	err := row.Scan(&attempts)
+	return attempts, err
+}
+
 const markInProgress = `-- name: MarkInProgress :one
 UPDATE queued_jobs
 SET status = 'in-progress',

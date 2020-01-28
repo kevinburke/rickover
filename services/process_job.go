@@ -175,17 +175,16 @@ func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) err
 // the queued_jobs table.
 func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob, failTimeout time.Duration) error {
 	start := time.Now()
-	// This is not going to change but we continually overwrite qj
 	name := qj.Name
 	idStr := qj.ID.String()
-
 	currentAttemptCount := qj.Attempts
-	queryCount := int64(0)
+	queryCount := 0
 	if failTimeout <= 0 {
 		failTimeout = DefaultTimeout
 	}
 	tctx, cancel := context.WithTimeout(ctx, failTimeout)
 	defer cancel()
+	latencyKey := "wait_for_job." + name + ".latency"
 	for {
 		select {
 		case <-tctx.Done():
@@ -203,36 +202,54 @@ func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob,
 				metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed.error", name))
 			}
 			return err
-		default:
+		case <-time.After(waitSleep(queryCount)):
 			getStart := time.Now()
-			qj, err := queued_jobs.Get(tctx, qj.ID)
+			qjAttempts, err := queued_jobs.GetAttempts(tctx, qj.ID)
 			queryCount++
 			metrics.Time("wait_for_job.get.latency", time.Since(getStart))
 			if err == queued_jobs.ErrNotFound {
 				// inserted this job into archived_jobs. nothing to do!
-				go func(name string, start time.Time, idStr string, queryCount int64) {
-					metrics.Increment(fmt.Sprintf("wait_for_job.%s.archived", name))
+				go func(name string, start time.Time, idStr string, queryCount int) {
+					metrics.Increment("wait_for_job." + name + ".archived")
 					metrics.Increment("wait_for_job.archived")
-					metrics.Time(fmt.Sprintf("wait_for_job.%s.latency", name), time.Since(start))
-					metrics.Measure(fmt.Sprintf("wait_for_job.%s.queries", name), queryCount)
+					metrics.Time(latencyKey, time.Since(start))
+					metrics.Measure("wait_for_job."+name+".queries", int64(queryCount))
 					duration := time.Since(start)
 					// Default print method has too many decimals
-					roundDuration := duration - duration%(time.Millisecond/10)
-					logger.Info("job completed", "id", idStr, "name", name, "duration", roundDuration)
+					logger.Info("job completed", "id", idStr, "name", name, "duration", duration.Round(time.Millisecond/10))
 				}(name, start, idStr, queryCount)
 				return nil
 			} else if err != nil {
 				continue
 			}
-			if qj.Attempts < currentAttemptCount {
+			if qjAttempts < currentAttemptCount {
 				// Another thread decremented the attempt count and re-queued
 				// the job, we're done.
-				metrics.Time(fmt.Sprintf("wait_for_job.%s.latency", name), time.Since(start))
-				metrics.Increment(fmt.Sprintf("wait_for_job.%s.attempt_count_decremented", name))
+				metrics.Time(latencyKey, time.Since(start))
+				metrics.Increment("wait_for_job." + name + ".attempt_count_decremented")
 				logger.Info("job failed, retrying", "id", idStr, "type", name, "duration", time.Since(start))
 				return nil
 			}
 		}
+	}
+}
+
+func waitSleep(failedAttempts int) time.Duration {
+	switch {
+	case failedAttempts <= 1:
+		return 0
+	case failedAttempts <= 5:
+		return time.Millisecond
+	case failedAttempts <= 10:
+		return 5 * time.Millisecond
+	case failedAttempts <= 15:
+		return 10 * time.Millisecond
+	case failedAttempts <= 30:
+		return 30 * time.Millisecond
+	case failedAttempts <= 100:
+		return 100 * time.Millisecond
+	default:
+		return 500 * time.Millisecond
 	}
 }
 
