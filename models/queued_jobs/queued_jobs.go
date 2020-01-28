@@ -185,6 +185,7 @@ WITH RECURSIVE lock_candidates (n) AS (
 UPDATE queued_jobs
 SET status = 'in-progress', updated_at = now()
 WHERE id = (SELECT id FROM lock_candidates where locked_row_id > 0 LIMIT 1)
+AND status = 'queued'
 RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, status, data, auto_id
 `, name).Scan(
 			&i.ID,

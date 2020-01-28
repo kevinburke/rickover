@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -140,12 +141,12 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 	t.Parallel()
 	qj := factory.CreateQJ(t)
 
-	c1 := make(chan bool, 1)
+	c1 := int32(0)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("{}"))
-		c1 <- true
+		atomic.AddInt32(&c1, 1)
 	}))
 	defer s.Close()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -155,16 +156,8 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 		pool.AddDequeuer(ctx, jp)
 	}
 	defer cancel()
-	count := 0
-	for {
-		select {
-		case <-c1:
-			count++
-		case <-time.After(100 * time.Millisecond):
-			test.AssertEquals(t, count, 1)
-			return
-		}
-	}
+	<-time.After(100 * time.Millisecond)
+	test.AssertEquals(t, c1, int32(1))
 }
 
 func TestCreatePools(t *testing.T) {
