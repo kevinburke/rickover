@@ -85,7 +85,6 @@ func createAndDelete(ctx context.Context, logger log.Logger, id types.PrefixUUID
 		default:
 			return err
 		}
-		return err
 	}
 	start = time.Now()
 	err = queued_jobs.DeleteRetry(ctx, id, 3)
