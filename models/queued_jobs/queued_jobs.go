@@ -145,7 +145,6 @@ func Acquire(ctx context.Context, name string, workerID int) (*newmodels.QueuedJ
 	if err != nil {
 		return nil, err
 	}
-	qs := newmodels.DB.WithTx(tx)
 	if useRecursiveMethod {
 		var i newmodels.QueuedJob
 		err = tx.QueryRowContext(ctx, `
@@ -217,6 +216,8 @@ RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, sta
 		i.ID.Prefix = Prefix
 		return &i, nil
 	}
+	qs := newmodels.DB.WithTx(tx)
+	defer qs.Close()
 	var qjid types.PrefixUUID
 	for i := 0; i < 5; i++ {
 		qjid, err = qs.AcquireJob(ctx, name)

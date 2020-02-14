@@ -51,11 +51,11 @@ type DownstreamHandler struct {
 
 func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob) error {
 	d.Info("processing job", "id", qj.ID.String(), "type", qj.Name)
+	params := &downstream.JobParams{
+		Data:     qj.Data,
+		Attempts: qj.Attempts,
+	}
 	for i := 0; i < 3; i++ {
-		params := &downstream.JobParams{
-			Data:     qj.Data,
-			Attempts: qj.Attempts,
-		}
 		start := time.Now()
 		err := d.client.Job.Post(ctx, qj.Name, &qj.ID, params)
 		metrics.Time("post_job.latency", time.Since(start))
