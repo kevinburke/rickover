@@ -14,11 +14,11 @@
     "overrides": [
       {
           "go_type": "github.com/kevinburke/go-types.PrefixUUID",
-          "postgres_type": "uuid"
+          "db_type": "uuid"
       },
       {
           "go_type": "github.com/kevinburke/go-types.NullTime",
-          "postgres_type": "pg_catalog.timestamptz",
+          "db_type": "pg_catalog.timestamptz",
           "null": true
       }
     ]
