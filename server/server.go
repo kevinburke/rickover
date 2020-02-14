@@ -518,7 +518,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case *pq.Error:
-			if terr.Code == "23505" {
+			if terr.Code == "23505" { // unique violation
 				queuedJob, err = queued_jobs.Get(r.Context(), id)
 				if err != nil {
 					rest.ServerError(w, r, err)

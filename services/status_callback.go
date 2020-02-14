@@ -11,12 +11,14 @@ import (
 	"math"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
+	"github.com/lib/pq"
 )
 
 // HandleStatusCallback updates a queued job with the provided status and
@@ -28,10 +30,10 @@ import (
 // already exists, the queued job no longer exists by the time you attempt to
 // delete it, the number of attempts for the queued job don't match up with the
 // passed in value (slow)
-func HandleStatusCallback(ctx context.Context, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16, retryable bool) error {
+func HandleStatusCallback(ctx context.Context, logger log.Logger, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16, retryable bool) error {
 	switch status {
 	case newmodels.ArchivedJobStatusSucceeded:
-		err := createAndDelete(ctx, id, name, newmodels.ArchivedJobStatusSucceeded, attempt)
+		err := createAndDelete(ctx, logger, id, name, newmodels.ArchivedJobStatusSucceeded, attempt)
 		if err != nil {
 			metrics.Increment("archived_job.create.success.error")
 		} else {
@@ -41,7 +43,7 @@ func HandleStatusCallback(ctx context.Context, id types.PrefixUUID, name string,
 		}
 		return err
 	case newmodels.ArchivedJobStatusFailed:
-		err := handleFailedCallback(ctx, id, name, attempt, retryable)
+		err := handleFailedCallback(ctx, logger, id, name, attempt, retryable)
 		if err != nil {
 			metrics.Increment("archived_job.create.failed.error")
 		} else {
@@ -55,24 +57,34 @@ func HandleStatusCallback(ctx context.Context, id types.PrefixUUID, name string,
 	}
 }
 
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch terr := err.(type) {
+	case *pq.Error:
+		return terr.Code == "23505"
+	default:
+		return false
+	}
+}
+
 // createAndDelete creates an archived job, deletes the queued job, and returns
 // any errors.
-func createAndDelete(ctx context.Context, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16) error {
+func createAndDelete(ctx context.Context, logger log.Logger, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16) error {
 	start := time.Now()
 	_, err := archived_jobs.Create(ctx, id, name, status, attempt)
 	metrics.Time("archived_job.create.latency", time.Since(start))
 	if err != nil {
-		/*
-			case isUniqueViolation(): {
-				// Some other thread beat us to it. Don't return an error, just
-				// fall through and try to delete the record.
-				log.Printf("Could not create archived job %s with status %s because "+
-					"it was already present. Deleting the queued job.", id.String(), status)
-			} else {
-				return err
-			}
-			default:
-		*/
+		switch {
+		case isUniqueViolation(err):
+			// Some other thread beat us to it. Don't return an error, just
+			// fall through and try to delete the record.
+			logger.Info("Could not create archived job because "+
+				"it was already present. Deleting the queued job.", "id", id.String(), "status", status)
+		default:
+			return err
+		}
 		return err
 	}
 	start = time.Now()
@@ -90,17 +102,17 @@ func getRunAfter(totalAttempts, remainingAttempts int16) time.Time {
 
 var ErrFailedDecrement = fmt.Errorf("could not decrement queued job counter; job may have been archived or attempt number may not match the database")
 
-func handleFailedCallback(ctx context.Context, id types.PrefixUUID, name string, attempt int16, retryable bool) error {
+func handleFailedCallback(ctx context.Context, logger log.Logger, id types.PrefixUUID, name string, attempt int16, retryable bool) error {
 	remainingAttempts := attempt - 1
 	if !retryable || remainingAttempts == 0 {
-		return createAndDelete(ctx, id, name, newmodels.ArchivedJobStatusFailed, remainingAttempts)
+		return createAndDelete(ctx, logger, id, name, newmodels.ArchivedJobStatusFailed, remainingAttempts)
 	}
 	job, err := jobs.GetRetry(ctx, name, 3)
 	if err != nil {
 		return err
 	}
 	if job.DeliveryStrategy == newmodels.DeliveryStrategyAtMostOnce {
-		return createAndDelete(ctx, id, name, newmodels.ArchivedJobStatusFailed, remainingAttempts)
+		return createAndDelete(ctx, logger, id, name, newmodels.ArchivedJobStatusFailed, remainingAttempts)
 	} else {
 		// Try the job again. Note the database decrements the attempt counter
 		start := time.Now()

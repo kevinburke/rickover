@@ -27,7 +27,7 @@ func ArchiveStuckJobs(ctx context.Context, logger log.Logger, olderThan time.Dur
 		// the server state.
 		handleCtx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 		defer cancel()
-		err = HandleStatusCallback(handleCtx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
+		err = HandleStatusCallback(handleCtx, logger, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		if err == nil {
 			logger.Info("found stuck job and marked it as failed", "id", qj.ID.String())
 		} else {

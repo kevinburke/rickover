@@ -77,7 +77,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
-	err = services.HandleStatusCallback(ctx, id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
+	err = services.HandleStatusCallback(ctx, rest.Logger, id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
 		return

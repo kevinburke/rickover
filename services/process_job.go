@@ -143,7 +143,7 @@ func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) err
 		panic("cannot do work with nil Handler")
 	}
 	if qj.ExpiresAt.Valid && time.Since(qj.ExpiresAt.Time) >= 0 {
-		return createAndDelete(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
+		return createAndDelete(ctx, jp, qj.ID, qj.Name, newmodels.ArchivedJobStatusExpired, qj.Attempts)
 	}
 	var tctx context.Context
 	var cancel context.CancelFunc
@@ -165,7 +165,7 @@ func (jp *JobProcessor) DoWork(ctx context.Context, qj *newmodels.QueuedJob) err
 			return waitForJob(ctx, jp.Logger, qj, jp.Timeout)
 		} else {
 			// Assume the request failed.
-			return HandleStatusCallback(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
+			return HandleStatusCallback(ctx, jp.Logger, qj.ID, qj.Name, newmodels.ArchivedJobStatusFailed, qj.Attempts, true)
 		}
 	}
 	return waitForJob(ctx, jp.Logger, qj, jp.Timeout)
@@ -190,7 +190,7 @@ func waitForJob(ctx context.Context, logger log.Logger, qj *newmodels.QueuedJob,
 		case <-tctx.Done():
 			metrics.Increment(fmt.Sprintf("wait_for_job.%s.timeout", name))
 			logger.Info("timeout exceeded, marking job as failed", "id", idStr, "type", name)
-			err := HandleStatusCallback(ctx, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
+			err := HandleStatusCallback(ctx, logger, qj.ID, name, newmodels.ArchivedJobStatusFailed, currentAttemptCount, true)
 			metrics.Increment(fmt.Sprintf("wait_for_job.%s.failed", name))
 			if err == sql.ErrNoRows {
 				// Attempted to decrement the failed count, but couldn't do so;

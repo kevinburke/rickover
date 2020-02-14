@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -122,7 +123,9 @@ func testEnqueueUnknownJobTypeErrNoRows(t *testing.T) {
 func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 	t.Parallel()
 	_, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
-	err := services.HandleStatusCallback(context.Background(), qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
+	logger := log.New()
+	logger.SetHandler(log.DiscardHandler())
+	err := services.HandleStatusCallback(context.Background(), logger, qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts, true)
 	test.AssertNotError(t, err, "")
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
