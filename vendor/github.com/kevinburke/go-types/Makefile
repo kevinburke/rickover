@@ -1,7 +1,7 @@
 .PHONY: install test
 BUMP_VERSION := $(GOPATH)/bin/bump_version
 GODOCDOC := $(GOPATH)/bin/godocdoc
-MEGACHECK := $(GOPATH)/bin/megacheck
+STATICCHECK := $(GOPATH)/bin/staticcheck
 
 test: lint
 	go test ./...
@@ -10,11 +10,11 @@ install:
 	go get ./...
 	go install ./...
 
-$(MEGACHECK):
-	go get honnef.co/go/tools/cmd/megacheck
+$(STATICCHECK):
+	go get honnef.co/go/tools/cmd/staticcheck
 
-lint: | $(MEGACHECK)
-	$(MEGACHECK) ./...
+lint: | $(STATICCHECK)
+	$(STATICCHECK) ./...
 	go vet ./...
 
 race-test:

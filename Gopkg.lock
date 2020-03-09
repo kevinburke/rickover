@@ -34,12 +34,12 @@
   version = "1.0"
 
 [[projects]]
-  digest = "1:2ad808696af54cbb4fcba262b66cad43ad66b06bb871654a4a7c369d60dbd22c"
+  digest = "1:1343b30ebb41b6b9241b2c7af554ee49afaa45c726bdd3e0a15eb574273950a7"
   name = "github.com/kevinburke/go-types"
   packages = ["."]
   pruneopts = "UT"
-  revision = "31250f49d75aade5d5389ab908d0eae15654bd41"
-  version = "0.24"
+  revision = "f2d4aea18a7a1f5e91b1e7afaaa2459213dff6f5"
+  version = "1.0"
 
 [[projects]]
   digest = "1:c34274a85e6b86a0bedded8671647fbf9b84a73411e5b04beaf75ff34596b117"
@@ -138,17 +138,6 @@
   packages = ["unix"]
   pruneopts = "UT"
   revision = "2c42eef0765b9837fbdab12011af7830f55f88f0"
-
-[[projects]]
-  branch = "v2"
-  digest = "1:2642fd0b6900c77247d61d80cf2eb59a374ef4ffc2d25a1b95b87dc355b2894e"
-  name = "gopkg.in/mgo.v2"
-  packages = [
-    "bson",
-    "internal/json",
-  ]
-  pruneopts = "UT"
-  revision = "9856a29383ce1c59f308dd1cf0363a79b5bef6b5"
 
 [solve-meta]
   analyzer-name = "dep"
