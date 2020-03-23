@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -25,12 +26,21 @@ func TestAll(t *testing.T) {
 	})
 }
 
+func cparams(id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempts int16) newmodels.CreateArchivedJobParams {
+	return newmodels.CreateArchivedJobParams{
+		ID:       id,
+		Name:     name,
+		Status:   status,
+		Attempts: attempts,
+	}
+}
+
 // Test that creating an archived job returns the job
 func testCreateJobReturnsJob(t *testing.T) {
 	t.Parallel()
 	qj := factory.CreateQJ(t)
 	ctx := context.Background()
-	aj, err := archived_jobs.Create(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
+	aj, err := archived_jobs.Create(ctx, cparams(qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts))
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
 	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
@@ -48,7 +58,7 @@ func testCreateJobReturnsJob(t *testing.T) {
 func testCreateArchivedJobWithNoQueuedReturnsErrNoRows(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	_, err := archived_jobs.Create(ctx, factory.JobId, "echo", newmodels.ArchivedJobStatusSucceeded, 7)
+	_, err := archived_jobs.Create(ctx, cparams(factory.JobId, "echo", newmodels.ArchivedJobStatusSucceeded, 7))
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 }
 
@@ -58,9 +68,9 @@ func testArchivedJobFailsIfJobExists(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 	ctx := context.Background()
-	_, err := archived_jobs.Create(ctx, qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
+	_, err := archived_jobs.Create(ctx, cparams(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7))
 	test.AssertNotError(t, err, "")
-	_, err = archived_jobs.Create(ctx, qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
+	_, err = archived_jobs.Create(ctx, cparams(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7))
 	test.AssertError(t, err, "expected error, got nil")
 	switch terr := err.(type) {
 	case *pq.Error:
@@ -78,7 +88,7 @@ func testCreateJobStoresJob(t *testing.T) {
 	t.Parallel()
 	job, qj := factory.CreateUniqueQueuedJob(t, factory.EmptyData)
 	ctx := context.Background()
-	aj, err := archived_jobs.Create(ctx, qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
+	aj, err := archived_jobs.Create(ctx, cparams(qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7))
 	test.AssertNotError(t, err, "")
 	aj, err = archived_jobs.Get(aj.ID)
 	test.AssertNotError(t, err, "")
@@ -98,6 +108,6 @@ func TestCreateArchivedJobWithWrongNameReturnsErrNoRows(t *testing.T) {
 	qj := factory.CreateQueuedJob(t, factory.EmptyData)
 	defer test.TearDown(t)
 	ctx := context.Background()
-	_, err := archived_jobs.Create(ctx, qj.ID, "wrong-job-name", newmodels.ArchivedJobStatusSucceeded, 7)
+	_, err := archived_jobs.Create(ctx, cparams(qj.ID, "wrong-job-name", newmodels.ArchivedJobStatusSucceeded, 7))
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
 }

@@ -73,7 +73,13 @@ func isUniqueViolation(err error) bool {
 // any errors.
 func createAndDelete(ctx context.Context, logger log.Logger, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16) error {
 	start := time.Now()
-	_, err := archived_jobs.Create(ctx, id, name, status, attempt)
+	params := newmodels.CreateArchivedJobParams{
+		ID:       id,
+		Name:     name,
+		Status:   status,
+		Attempts: attempt,
+	}
+	_, err := archived_jobs.Create(ctx, params)
 	metrics.Time("archived_job.create.latency", time.Since(start))
 	if err != nil {
 		switch {

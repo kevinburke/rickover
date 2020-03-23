@@ -20,13 +20,8 @@ var ErrNotFound = errors.New("archived_jobs: job not found")
 // Create an archived job with the given id, status, and attempts. Assumes that
 // the job already exists in the queued_jobs table; the `data` field is copied
 // from there. If the job does not exist, queued_jobs.ErrNotFound is returned.
-func Create(ctx context.Context, id types.PrefixUUID, name string, status newmodels.ArchivedJobStatus, attempt int16) (*newmodels.ArchivedJob, error) {
-	aj, err := newmodels.DB.CreateArchivedJob(ctx, newmodels.CreateArchivedJobParams{
-		ID:       id,
-		Name:     name,
-		Status:   status,
-		Attempts: attempt,
-	})
+func Create(ctx context.Context, params newmodels.CreateArchivedJobParams) (*newmodels.ArchivedJob, error) {
+	aj, err := newmodels.DB.CreateArchivedJob(ctx, params)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, queued_jobs.ErrNotFound

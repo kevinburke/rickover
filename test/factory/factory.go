@@ -130,7 +130,7 @@ func CreateArchivedJob(t *testing.T, data json.RawMessage, status newmodels.Arch
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, qj := createJobAndQueuedJob(t, SampleJob, data, false)
-	aj, err := archived_jobs.Create(ctx, qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts)
+	aj, err := archived_jobs.Create(ctx, newmodels.CreateArchivedJobParams{qj.ID, qj.Name, newmodels.ArchivedJobStatusSucceeded, qj.Attempts})
 	test.AssertNotError(t, err, "")
 	err = queued_jobs.DeleteRetry(ctx, qj.ID, 3)
 	test.AssertNotError(t, err, "")

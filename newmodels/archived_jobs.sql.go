@@ -10,12 +10,12 @@ import (
 )
 
 const createArchivedJob = `-- name: CreateArchivedJob :one
-INSERT INTO archived_jobs (id, name, attempts, status, data, expires_at)
-SELECT id, $2, $4, $3, data, expires_at
+INSERT INTO archived_jobs (id, name, attempts, status, data, run_after, expires_at)
+SELECT id, $2, $4, $3, data, run_after, expires_at
 FROM queued_jobs
 WHERE queued_jobs.id = $1
 AND name = $2
-RETURNING id, name, attempts, status, created_at, data, expires_at, auto_id
+RETURNING id, name, attempts, status, created_at, data, expires_at, auto_id, run_after
 `
 
 type CreateArchivedJobParams struct {
@@ -42,12 +42,13 @@ func (q *Queries) CreateArchivedJob(ctx context.Context, arg CreateArchivedJobPa
 		&i.Data,
 		&i.ExpiresAt,
 		&i.AutoID,
+		&i.RunAfter,
 	)
 	return i, err
 }
 
 const getArchivedJob = `-- name: GetArchivedJob :one
-SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
+SELECT id, name, attempts, status, created_at, data, expires_at, auto_id, run_after
 FROM archived_jobs
 WHERE id = $1
 `
@@ -64,6 +65,7 @@ func (q *Queries) GetArchivedJob(ctx context.Context, id types.PrefixUUID) (Arch
 		&i.Data,
 		&i.ExpiresAt,
 		&i.AutoID,
+		&i.RunAfter,
 	)
 	return i, err
 }

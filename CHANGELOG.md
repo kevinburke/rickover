@@ -1,3 +1,9 @@
+## Version 3.0
+
+- The `archived_jobs` table now includes a `run_after` field, containing the
+earliest time a queued job could have been dequeued. (Requires a database
+migration.)
+
 ## Version 2.0
 
 - Requests without Basic Auth credentials will only receive a 401 if the
