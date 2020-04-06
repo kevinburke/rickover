@@ -14,9 +14,9 @@ import (
 	"os"
 	"time"
 
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rickover/config"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/server"
 	"github.com/kevinburke/rickover/setup"
@@ -33,8 +33,11 @@ func configure(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 
-	metrics.Namespace = "rickover.server"
-	metrics.Start("web", os.Getenv("LIBRATO_EMAIL_ACCOUNT"))
+	go metrics.Run(ctx, metrics.LibratoConfig{
+		Namespace: "rickover.server",
+		Source:    "web",
+		Email:     os.Getenv("LIBRATO_EMAIL_ACCOUNT"),
+	})
 
 	go setup.MeasureActiveQueries(ctx, 5*time.Second)
 

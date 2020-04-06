@@ -9,7 +9,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	metrics "github.com/kevinburke/go-simple-metrics"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"

@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"time"
 
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rickover/config"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/server"
 	"github.com/kevinburke/rickover/setup"
@@ -29,8 +29,6 @@ func init() {
 		serverDbConns = 10
 	}
 
-	metrics.Namespace = "rickover.server"
-
 	// Change this user to a private value
 	server.AddUser("test", "hymanrickover")
 }
@@ -40,7 +38,11 @@ func Example_server() {
 		log.Fatal(err)
 	}
 
-	metrics.Start("web", "TODO@example.com")
+	go metrics.Run(context.TODO(), metrics.LibratoConfig{
+		Namespace: "rickover.server",
+		Source:    "web",
+		Email:     "TODO@example.com",
+	})
 
 	go setup.MeasureActiveQueries(context.TODO(), 5*time.Second)
 

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"

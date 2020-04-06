@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/config"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"

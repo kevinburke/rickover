@@ -376,6 +376,31 @@ connections than those from the server.
 - `DOWNSTREAM_WORKER_AUTH` - Basic auth password for the downstream service
   (user is "jobs").
 
+## Configure metrics
+
+The default metrics client uses Librato - see examples of how to configure it in
+`example_server_test.go` or `example_dequeuer_test.go`. However, you can
+override the default metrics client with any client that implements the
+`metrics.Metrics` interface, something like this:
+
+```go
+func (m myCustomClient) Increment(metric string) { ... }
+// implement the other interfaces
+
+func main() {
+    metrics.Client = myCustomClient{}
+}
+```
+
+You can choose which metrics to send by overriding `metrics.Exclude` to
+selectively exclude some metrics. By default, no metrics are excluded.
+
+```go
+metrics.Exclude = func(metric string) bool {
+    return !strings.HasSuffix("latency") // or whatever
+}
+```
+
 ## Local development
 
 We use [goose][goose] for database migrations. The test database is

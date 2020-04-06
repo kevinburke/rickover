@@ -9,10 +9,10 @@ import (
 	"os"
 	"os/signal"
 
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/services"
 	"golang.org/x/sys/unix"
 )
@@ -48,8 +48,11 @@ func main() {
 		config.SetMaxIdleConnsPerHost(100)
 	}
 
-	metrics.Namespace = "rickover.dequeuer"
-	metrics.Start("worker", os.Getenv("LIBRATO_EMAIL_ACCOUNT"))
+	go metrics.Run(ctx, metrics.LibratoConfig{
+		Namespace: "rickover.dequeuer",
+		Source:    "worker",
+		Email:     os.Getenv("LIBRATO_EMAIL_ACCOUNT"),
+	})
 
 	parsedUrl := config.GetURLOrBail("DOWNSTREAM_URL")
 	downstreamPassword := os.Getenv("DOWNSTREAM_WORKER_AUTH")

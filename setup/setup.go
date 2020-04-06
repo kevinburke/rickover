@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	metrics "github.com/kevinburke/go-simple-metrics"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"

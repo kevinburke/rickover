@@ -18,9 +18,9 @@ import (
 	"os/signal"
 
 	log "github.com/inconshreveable/log15"
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dequeuer"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/services"
 	"golang.org/x/sys/unix"
@@ -39,7 +39,6 @@ func init() {
 	}
 
 	downstreamPassword = os.Getenv("DOWNSTREAM_WORKER_AUTH")
-	metrics.Namespace = "rickover.dequeuer"
 }
 
 func Example_dequeuer() {
@@ -56,7 +55,11 @@ func Example_dequeuer() {
 	downstreamUrl = config.GetURLOrBail("DOWNSTREAM_URL").String()
 	jp := services.NewJobProcessor(services.NewDownstreamHandler(logger, downstreamUrl, downstreamPassword))
 
-	metrics.Start("worker", "TODO@example.com")
+	go metrics.Run(context.TODO(), metrics.LibratoConfig{
+		Namespace: "rickover.dequeuer",
+		Source:    "worker",
+		Email:     "TODO@example.com",
+	})
 
 	srv, err := dequeuer.New(ctx, dequeuer.Config{
 		Connector:       db.DefaultConnection,

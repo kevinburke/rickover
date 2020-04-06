@@ -11,9 +11,9 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	metrics "github.com/kevinburke/go-simple-metrics"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/downstream"
+	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 )
