@@ -45,6 +45,10 @@ error and return an appropriate 400.
 a `log.Logger` as an argument. Use `log15.New()` to create a Logger to pass to
 these functions.
 
+- A new Metrics interface exists - override metrics.Client with your own
+implementation to control where metrics are sent. See the README for more
+information.
+
 ## Version 0.37
 
 Fixes a crashing error in dequeuer.CreatePools (and adds tests so it can't
