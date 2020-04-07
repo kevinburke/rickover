@@ -4,7 +4,6 @@ package dequeuer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -297,9 +296,11 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 				err = d.W.DoWork(d.ctx, qj)
 				if err != nil {
 					d.Error("could not process job", "id", qj.ID.String(), "err", err)
-					metrics.Increment(fmt.Sprintf("dequeue.%s.error", name))
+					metrics.Increment("dequeue." + name + ".error")
+					metrics.Increment("dequeue.error")
 				} else {
-					metrics.Increment(fmt.Sprintf("dequeue.%s.success", name))
+					metrics.Increment("dequeue." + name + ".success")
+					metrics.Increment("dequeue.success")
 				}
 			} else {
 				failedAcquireCount++
