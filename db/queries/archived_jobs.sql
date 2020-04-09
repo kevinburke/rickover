@@ -10,3 +10,31 @@ RETURNING *;
 SELECT *
 FROM archived_jobs
 WHERE id = $1;
+
+-- name: ListArchivedJobs :many
+SELECT *
+FROM archived_jobs
+ORDER BY created_at DESC
+LIMIT $1;
+
+-- name: ListArchivedJobsByName :many
+SELECT *
+FROM archived_jobs
+WHERE name = $1
+ORDER BY created_at DESC
+LIMIT $2;
+
+-- name: ListArchivedJobsByStatus :many
+SELECT *
+FROM archived_jobs
+WHERE status = $1
+ORDER BY created_at DESC
+LIMIT $2;
+
+-- name: ListArchivedJobsByNameStatus :many
+SELECT *
+FROM archived_jobs
+WHERE name = $1
+    AND status = $2
+ORDER BY created_at DESC
+LIMIT $3;

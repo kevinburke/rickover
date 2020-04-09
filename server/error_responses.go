@@ -87,3 +87,13 @@ var serverError = rest.Error{
 	ID:     "server_error",
 	Title:  "Unexpected server error. Please try again",
 }
+
+func tooLarge(w http.ResponseWriter) {
+	resp := &rest.Error{
+		ID:    "entity_too_large",
+		Title: "Data parameter is too large (100KB max)",
+	}
+	data, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusRequestEntityTooLarge)
+	w.Write(data)
+}

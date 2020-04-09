@@ -14,10 +14,12 @@ import (
 	"net/http/pprof"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kevinburke/go-types"
+	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/metrics"
@@ -57,6 +59,9 @@ var jobIdRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)/(?P<id>(job
 
 // GET /v1/jobs/:job-name
 var getJobTypeRoute = regexp.MustCompile(`^/v1/jobs/(?P<JobName>[^\s\/]+)$`)
+
+// GET /v1/archived-jobs
+var archivedJobsRoute = regexp.MustCompile("^/v1/archived-jobs$")
 
 type Config struct {
 	// Authorizer to use. If nil, DefaultAuthorizer is used.
@@ -99,6 +104,7 @@ func Get(a Authorizer) http.Handler {
 	h.Handler(replayRoute, []string{"POST"}, authHandler(replayHandler(), a))
 
 	h.Handler(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(), a))
+	h.Handler(archivedJobsRoute, []string{"GET"}, authHandler(listArchivedJobs(), a))
 
 	h.Handler(regexp.MustCompile("^/debug/pprof$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Index), a))
 	h.Handler(regexp.MustCompile("^/debug/pprof/cmdline$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Cmdline), a))
@@ -108,11 +114,10 @@ func Get(a Authorizer) http.Handler {
 
 	h.Handler(regexp.MustCompile("^/$"), []string{"GET"}, authHandler(http.HandlerFunc(renderHomepage), a))
 
-	return debugRequestBodyHandler(
-		serverHeaderHandler(
-			forbidNonTLSTrafficHandler(h),
-		),
-	)
+	mux := forbidNonTLSTrafficHandler(h)
+	mux = serverHeaderHandler(mux)
+	mux = debugRequestBodyHandler(mux)
+	return mux
 }
 
 func init() {
@@ -232,10 +237,11 @@ func getJobType() http.Handler {
 			rest.ServerError(w, r, err)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(job)
+		respond(Logger, w, r, job)
 	})
 }
+
+var Logger = handlers.Logger
 
 // POST /v1/jobs
 //
@@ -325,8 +331,7 @@ func createJob() http.Handler {
 				return
 			}
 		}
-		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(job)
+		created(Logger, w, r, job)
 		metrics.Increment("type.create.success")
 	})
 }
@@ -350,16 +355,19 @@ func handleJobRoute() http.HandlerFunc {
 		if r.Method == "POST" {
 			j := jobStatusUpdater{}
 			j.ServeHTTP(w, r)
-		} else if r.Method == "PUT" {
+			return
+		}
+		if r.Method == "PUT" {
 			j := jobEnqueuer{}
 			j.ServeHTTP(w, r)
-		} else if r.Method == "GET" {
+			return
+		}
+		if r.Method == "GET" {
 			j := jobStatusGetter{}
 			j.ServeHTTP(w, r)
-		} else {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(new405(r))
+			return
 		}
+		rest.NotAllowed(w, r)
 	})
 }
 
@@ -401,8 +409,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			notFound(w, nfe)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(qj)
+		respond(Logger, w, r, qj)
 		metrics.Increment("job.get.queued.success")
 		return
 	}
@@ -423,8 +430,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rest.ServerError(w, r, err)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(aj)
+	respond(Logger, w, r, aj)
 	metrics.Increment("job.get.archived.success")
 }
 
@@ -480,13 +486,10 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// TODO we've already consumed the whole thing, use limitedbytesreader
+	// instead.
 	if len(ejr.Data) > MAX_ENQUEUE_DATA_SIZE {
-		err := &rest.Error{
-			ID:    "entity_too_large",
-			Title: "Data parameter is too large (100KB max)",
-		}
-		w.WriteHeader(http.StatusRequestEntityTooLarge)
-		json.NewEncoder(w).Encode(err)
+		tooLarge(w)
 		return
 	}
 	name := jobIdRoute.FindStringSubmatch(r.URL.Path)[1]
@@ -540,8 +543,71 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(queuedJob)
+	accepted(Logger, w, r, queuedJob)
 	metrics.Increment("enqueue.success")
-	metrics.Increment(fmt.Sprintf("enqueue.%s.success", name))
+	metrics.Increment("enqueue." + name + ".success")
+}
+
+// GET /v1/archived-jobs
+func listArchivedJobs() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		typ := query.Get("name")
+		status := query.Get("status")
+		// TODO validate status
+		limitQ := query.Get("limit")
+		var limit int
+		if limitQ == "" {
+			limit = 100
+		} else {
+			var err error
+			limit, err = strconv.Atoi(limitQ)
+			if err != nil {
+				rest.BadRequest(w, r, &rest.Error{Title: err.Error(), ID: "invalid_parameter"})
+				return
+			}
+			if limit <= 0 {
+				rest.BadRequest(w, r, &rest.Error{
+					Title: "limit cannot be negative", ID: "invalid_parameter",
+				})
+				return
+			}
+			if limit > 100 {
+				rest.BadRequest(w, r, &rest.Error{
+					Title: "limit cannot be greater than 100", ID: "invalid_parameter",
+				})
+				return
+			}
+		}
+		var ajs []newmodels.ArchivedJob
+		var err error
+		switch {
+		case typ == "" && status == "":
+			ajs, err = newmodels.DB.ListArchivedJobs(r.Context(), int32(limit))
+		case status == "" && typ != "":
+			ajs, err = newmodels.DB.ListArchivedJobsByName(r.Context(), newmodels.ListArchivedJobsByNameParams{
+				Limit: int32(limit),
+				Name:  typ,
+			})
+		case status != "" && typ == "":
+			ajs, err = newmodels.DB.ListArchivedJobsByStatus(r.Context(), newmodels.ListArchivedJobsByStatusParams{
+				Limit:  int32(limit),
+				Status: newmodels.ArchivedJobStatus(status),
+			})
+		case status != "" && typ != "":
+			ajs, err = newmodels.DB.ListArchivedJobsByNameStatus(r.Context(), newmodels.ListArchivedJobsByNameStatusParams{
+				Limit:  int32(limit),
+				Name:   typ,
+				Status: newmodels.ArchivedJobStatus(status),
+			})
+		default:
+			panic("should be unreachable")
+		}
+		if err != nil {
+			rest.ServerError(w, r, err)
+			return
+		}
+		// TODO: add Next, Previous pagination by encrypted auto id
+		respond(Logger, w, r, ajs)
+	})
 }

@@ -55,7 +55,7 @@ race-test: race-testonly truncate-test
 test: testonly truncate-test
 
 serve:
-	@DATABASE_URL=$(DATABASE_URL) go run commands/server/main.go
+	DATABASE_URL=$(DATABASE_URL) go run commands/server/main.go
 
 dequeue:
 	@DATABASE_URL=$(DATABASE_URL) go run commands/dequeuer/main.go

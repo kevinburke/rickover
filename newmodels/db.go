@@ -73,6 +73,18 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getQueuedJobAttemptsStmt, err = db.PrepareContext(ctx, getQueuedJobAttempts); err != nil {
 		return nil, fmt.Errorf("error preparing query GetQueuedJobAttempts: %w", err)
 	}
+	if q.listArchivedJobsStmt, err = db.PrepareContext(ctx, listArchivedJobs); err != nil {
+		return nil, fmt.Errorf("error preparing query ListArchivedJobs: %w", err)
+	}
+	if q.listArchivedJobsByNameStmt, err = db.PrepareContext(ctx, listArchivedJobsByName); err != nil {
+		return nil, fmt.Errorf("error preparing query ListArchivedJobsByName: %w", err)
+	}
+	if q.listArchivedJobsByNameStatusStmt, err = db.PrepareContext(ctx, listArchivedJobsByNameStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query ListArchivedJobsByNameStatus: %w", err)
+	}
+	if q.listArchivedJobsByStatusStmt, err = db.PrepareContext(ctx, listArchivedJobsByStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query ListArchivedJobsByStatus: %w", err)
+	}
 	if q.markInProgressStmt, err = db.PrepareContext(ctx, markInProgress); err != nil {
 		return nil, fmt.Errorf("error preparing query MarkInProgress: %w", err)
 	}
@@ -172,6 +184,26 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getQueuedJobAttemptsStmt: %w", cerr)
 		}
 	}
+	if q.listArchivedJobsStmt != nil {
+		if cerr := q.listArchivedJobsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listArchivedJobsStmt: %w", cerr)
+		}
+	}
+	if q.listArchivedJobsByNameStmt != nil {
+		if cerr := q.listArchivedJobsByNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listArchivedJobsByNameStmt: %w", cerr)
+		}
+	}
+	if q.listArchivedJobsByNameStatusStmt != nil {
+		if cerr := q.listArchivedJobsByNameStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listArchivedJobsByNameStatusStmt: %w", cerr)
+		}
+	}
+	if q.listArchivedJobsByStatusStmt != nil {
+		if cerr := q.listArchivedJobsByStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listArchivedJobsByStatusStmt: %w", cerr)
+		}
+	}
 	if q.markInProgressStmt != nil {
 		if cerr := q.markInProgressStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing markInProgressStmt: %w", cerr)
@@ -224,53 +256,61 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                          DBTX
-	tx                          *sql.Tx
-	acquireJobStmt              *sql.Stmt
-	countReadyAndAllStmt        *sql.Stmt
-	createArchivedJobStmt       *sql.Stmt
-	createJobStmt               *sql.Stmt
-	decrementQueuedJobStmt      *sql.Stmt
-	deleteAllJobsStmt           *sql.Stmt
-	deleteAllQueuedJobsStmt     *sql.Stmt
-	deleteQueuedJobStmt         *sql.Stmt
-	enqueueJobStmt              *sql.Stmt
-	enqueueJobFastStmt          *sql.Stmt
-	getAllJobsStmt              *sql.Stmt
-	getArchivedJobStmt          *sql.Stmt
-	getJobStmt                  *sql.Stmt
-	getOldInProgressJobsStmt    *sql.Stmt
-	getQueuedCountsByStatusStmt *sql.Stmt
-	getQueuedJobStmt            *sql.Stmt
-	getQueuedJobAttemptsStmt    *sql.Stmt
-	markInProgressStmt          *sql.Stmt
-	oldAcquireJobStmt           *sql.Stmt
-	truncateStmt                *sql.Stmt
+	db                               DBTX
+	tx                               *sql.Tx
+	acquireJobStmt                   *sql.Stmt
+	countReadyAndAllStmt             *sql.Stmt
+	createArchivedJobStmt            *sql.Stmt
+	createJobStmt                    *sql.Stmt
+	decrementQueuedJobStmt           *sql.Stmt
+	deleteAllJobsStmt                *sql.Stmt
+	deleteAllQueuedJobsStmt          *sql.Stmt
+	deleteQueuedJobStmt              *sql.Stmt
+	enqueueJobStmt                   *sql.Stmt
+	enqueueJobFastStmt               *sql.Stmt
+	getAllJobsStmt                   *sql.Stmt
+	getArchivedJobStmt               *sql.Stmt
+	getJobStmt                       *sql.Stmt
+	getOldInProgressJobsStmt         *sql.Stmt
+	getQueuedCountsByStatusStmt      *sql.Stmt
+	getQueuedJobStmt                 *sql.Stmt
+	getQueuedJobAttemptsStmt         *sql.Stmt
+	listArchivedJobsStmt             *sql.Stmt
+	listArchivedJobsByNameStmt       *sql.Stmt
+	listArchivedJobsByNameStatusStmt *sql.Stmt
+	listArchivedJobsByStatusStmt     *sql.Stmt
+	markInProgressStmt               *sql.Stmt
+	oldAcquireJobStmt                *sql.Stmt
+	truncateStmt                     *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                          tx,
-		tx:                          tx,
-		acquireJobStmt:              q.acquireJobStmt,
-		countReadyAndAllStmt:        q.countReadyAndAllStmt,
-		createArchivedJobStmt:       q.createArchivedJobStmt,
-		createJobStmt:               q.createJobStmt,
-		decrementQueuedJobStmt:      q.decrementQueuedJobStmt,
-		deleteAllJobsStmt:           q.deleteAllJobsStmt,
-		deleteAllQueuedJobsStmt:     q.deleteAllQueuedJobsStmt,
-		deleteQueuedJobStmt:         q.deleteQueuedJobStmt,
-		enqueueJobStmt:              q.enqueueJobStmt,
-		enqueueJobFastStmt:          q.enqueueJobFastStmt,
-		getAllJobsStmt:              q.getAllJobsStmt,
-		getArchivedJobStmt:          q.getArchivedJobStmt,
-		getJobStmt:                  q.getJobStmt,
-		getOldInProgressJobsStmt:    q.getOldInProgressJobsStmt,
-		getQueuedCountsByStatusStmt: q.getQueuedCountsByStatusStmt,
-		getQueuedJobStmt:            q.getQueuedJobStmt,
-		getQueuedJobAttemptsStmt:    q.getQueuedJobAttemptsStmt,
-		markInProgressStmt:          q.markInProgressStmt,
-		oldAcquireJobStmt:           q.oldAcquireJobStmt,
-		truncateStmt:                q.truncateStmt,
+		db:                               tx,
+		tx:                               tx,
+		acquireJobStmt:                   q.acquireJobStmt,
+		countReadyAndAllStmt:             q.countReadyAndAllStmt,
+		createArchivedJobStmt:            q.createArchivedJobStmt,
+		createJobStmt:                    q.createJobStmt,
+		decrementQueuedJobStmt:           q.decrementQueuedJobStmt,
+		deleteAllJobsStmt:                q.deleteAllJobsStmt,
+		deleteAllQueuedJobsStmt:          q.deleteAllQueuedJobsStmt,
+		deleteQueuedJobStmt:              q.deleteQueuedJobStmt,
+		enqueueJobStmt:                   q.enqueueJobStmt,
+		enqueueJobFastStmt:               q.enqueueJobFastStmt,
+		getAllJobsStmt:                   q.getAllJobsStmt,
+		getArchivedJobStmt:               q.getArchivedJobStmt,
+		getJobStmt:                       q.getJobStmt,
+		getOldInProgressJobsStmt:         q.getOldInProgressJobsStmt,
+		getQueuedCountsByStatusStmt:      q.getQueuedCountsByStatusStmt,
+		getQueuedJobStmt:                 q.getQueuedJobStmt,
+		getQueuedJobAttemptsStmt:         q.getQueuedJobAttemptsStmt,
+		listArchivedJobsStmt:             q.listArchivedJobsStmt,
+		listArchivedJobsByNameStmt:       q.listArchivedJobsByNameStmt,
+		listArchivedJobsByNameStatusStmt: q.listArchivedJobsByNameStatusStmt,
+		listArchivedJobsByStatusStmt:     q.listArchivedJobsByStatusStmt,
+		markInProgressStmt:               q.markInProgressStmt,
+		oldAcquireJobStmt:                q.oldAcquireJobStmt,
+		truncateStmt:                     q.truncateStmt,
 	}
 }

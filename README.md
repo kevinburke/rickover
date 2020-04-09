@@ -119,6 +119,14 @@ GET /v1/jobs/invoice-shipments/job_123 HTTP/1.1
 This looks in the queued_jobs table first, then the archived_jobs table, and
 returns whatever it finds. Note the fields in these tables don't match up 100%.
 
+#### List completed jobs
+
+```
+GET /v1/archived-jobs HTTP/1.1
+```
+
+Returns a list of archived jobs. Pass `name=x` to filter by jobs named `x`. Pass
+`limit=x` to limit results.
 
 ### Server Authentication
 

@@ -67,3 +67,179 @@ func (q *Queries) GetArchivedJob(ctx context.Context, id types.PrefixUUID) (Arch
 	)
 	return i, err
 }
+
+const listArchivedJobs = `-- name: ListArchivedJobs :many
+SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
+FROM archived_jobs
+ORDER BY created_at DESC
+LIMIT $1
+`
+
+func (q *Queries) ListArchivedJobs(ctx context.Context, limit int32) ([]ArchivedJob, error) {
+	rows, err := q.query(ctx, q.listArchivedJobsStmt, listArchivedJobs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ArchivedJob
+	for rows.Next() {
+		var i ArchivedJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Data,
+			&i.ExpiresAt,
+			&i.AutoID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedJobsByName = `-- name: ListArchivedJobsByName :many
+SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
+FROM archived_jobs
+WHERE name = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+
+type ListArchivedJobsByNameParams struct {
+	Name  string `json:"name"`
+	Limit int32  `json:"limit"`
+}
+
+func (q *Queries) ListArchivedJobsByName(ctx context.Context, arg ListArchivedJobsByNameParams) ([]ArchivedJob, error) {
+	rows, err := q.query(ctx, q.listArchivedJobsByNameStmt, listArchivedJobsByName, arg.Name, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ArchivedJob
+	for rows.Next() {
+		var i ArchivedJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Data,
+			&i.ExpiresAt,
+			&i.AutoID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedJobsByNameStatus = `-- name: ListArchivedJobsByNameStatus :many
+SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
+FROM archived_jobs
+WHERE name = $1
+    AND status = $2
+ORDER BY created_at DESC
+LIMIT $3
+`
+
+type ListArchivedJobsByNameStatusParams struct {
+	Name   string            `json:"name"`
+	Status ArchivedJobStatus `json:"status"`
+	Limit  int32             `json:"limit"`
+}
+
+func (q *Queries) ListArchivedJobsByNameStatus(ctx context.Context, arg ListArchivedJobsByNameStatusParams) ([]ArchivedJob, error) {
+	rows, err := q.query(ctx, q.listArchivedJobsByNameStatusStmt, listArchivedJobsByNameStatus, arg.Name, arg.Status, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ArchivedJob
+	for rows.Next() {
+		var i ArchivedJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Data,
+			&i.ExpiresAt,
+			&i.AutoID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedJobsByStatus = `-- name: ListArchivedJobsByStatus :many
+SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
+FROM archived_jobs
+WHERE status = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+
+type ListArchivedJobsByStatusParams struct {
+	Status ArchivedJobStatus `json:"status"`
+	Limit  int32             `json:"limit"`
+}
+
+func (q *Queries) ListArchivedJobsByStatus(ctx context.Context, arg ListArchivedJobsByStatusParams) ([]ArchivedJob, error) {
+	rows, err := q.query(ctx, q.listArchivedJobsByStatusStmt, listArchivedJobsByStatus, arg.Status, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ArchivedJob
+	for rows.Next() {
+		var i ArchivedJob
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Attempts,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Data,
+			&i.ExpiresAt,
+			&i.AutoID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

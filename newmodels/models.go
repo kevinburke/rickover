@@ -4,6 +4,7 @@ package newmodels
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/kevinburke/go-types"
@@ -18,7 +19,14 @@ const (
 )
 
 func (e *ArchivedJobStatus) Scan(src interface{}) error {
-	*e = ArchivedJobStatus(src.([]byte))
+	switch s := src.(type) {
+	case []byte:
+		*e = ArchivedJobStatus(s)
+	case string:
+		*e = ArchivedJobStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ArchivedJobStatus: %T", src)
+	}
 	return nil
 }
 
@@ -30,7 +38,14 @@ const (
 )
 
 func (e *DeliveryStrategy) Scan(src interface{}) error {
-	*e = DeliveryStrategy(src.([]byte))
+	switch s := src.(type) {
+	case []byte:
+		*e = DeliveryStrategy(s)
+	case string:
+		*e = DeliveryStrategy(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DeliveryStrategy: %T", src)
+	}
 	return nil
 }
 
@@ -42,7 +57,14 @@ const (
 )
 
 func (e *JobStatus) Scan(src interface{}) error {
-	*e = JobStatus(src.([]byte))
+	switch s := src.(type) {
+	case []byte:
+		*e = JobStatus(s)
+	case string:
+		*e = JobStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for JobStatus: %T", src)
+	}
 	return nil
 }
 
