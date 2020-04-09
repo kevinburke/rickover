@@ -71,7 +71,7 @@ func (q *Queries) GetArchivedJob(ctx context.Context, id types.PrefixUUID) (Arch
 const listArchivedJobs = `-- name: ListArchivedJobs :many
 SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
 FROM archived_jobs
-ORDER BY created_at DESC
+ORDER BY auto_id DESC
 LIMIT $1
 `
 
@@ -111,7 +111,7 @@ const listArchivedJobsByName = `-- name: ListArchivedJobsByName :many
 SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
 FROM archived_jobs
 WHERE name = $1
-ORDER BY created_at DESC
+ORDER BY auto_id DESC
 LIMIT $2
 `
 
@@ -157,7 +157,7 @@ SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
 FROM archived_jobs
 WHERE name = $1
     AND status = $2
-ORDER BY created_at DESC
+ORDER BY auto_id DESC
 LIMIT $3
 `
 
@@ -203,7 +203,7 @@ const listArchivedJobsByStatus = `-- name: ListArchivedJobsByStatus :many
 SELECT id, name, attempts, status, created_at, data, expires_at, auto_id
 FROM archived_jobs
 WHERE status = $1
-ORDER BY created_at DESC
+ORDER BY auto_id DESC
 LIMIT $2
 `
 
