@@ -1,8 +1,30 @@
 # rest
 
-This library contains a number of useful middlewares for writing a HTTP server
-in Go. For more information and package documentation, please [see the godoc
-documentation][gddo].
+This library contains a HTTP client, and a number of useful middlewares for
+writing a HTTP client and server in Go. For more information and package
+documentation, please [see the godoc documentation][gddo].
+
+### Client
+
+The `Client` struct makes it easy to interact with a JSON API.
+
+```go
+client := rest.NewClient("username", "password", "http://ipinfo.io")
+req, _ := client.NewRequest("GET", "/json", nil)
+type resp struct {
+    City string `json:"city"`
+    Ip   string `json:"ip"`
+}
+var r resp
+client.Do(req, &r)
+fmt.Println(r.Ip)
+```
+
+### Transport
+
+Use the `rest.Transport` as the `http.Transport` to easily inspect the raw HTTP
+request and response. Set `DEBUG_HTTP_TRAFFIC=true` in your environment to dump
+HTTP requests and responses to stderr.
 
 ### Defining Custom Error Responses
 

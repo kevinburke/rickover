@@ -1,7 +1,7 @@
 SHELL = /bin/bash -o pipefail
 
 BUMP_VERSION := $(GOPATH)/bin/bump_version
-MEGACHECK := $(GOPATH)/bin/megacheck
+STATICCHECK := $(GOPATH)/bin/staticcheck
 
 deps:
 	go get -u ./...
@@ -9,12 +9,12 @@ deps:
 test: lint
 	go test ./...
 
-lint: | $(MEGACHECK)
+lint: | $(STATICCHECK)
 	go vet ./...
-	$(MEGACHECK) ./...
+	$(STATICCHECK) ./...
 
-$(MEGACHECK):
-	go get honnef.co/go/tools/cmd/megacheck
+$(STATICCHECK):
+	go get honnef.co/go/tools/cmd/staticcheck
 
 race-test: lint
 	go test -race ./...

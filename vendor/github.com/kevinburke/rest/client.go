@@ -48,6 +48,8 @@ type Client struct {
 	// ErrorParser is invoked when the client gets a 400-or-higher status code
 	// from the server. Defaults to rest.DefaultErrorParser.
 	ErrorParser func(*http.Response) error
+
+	useBearerAuth bool
 }
 
 // NewClient returns a new Client with the given user and password. Base is the
@@ -60,6 +62,19 @@ func NewClient(user, pass, base string) *Client {
 		Base:        base,
 		UploadType:  JSON,
 		ErrorParser: DefaultErrorParser,
+	}
+}
+
+// NewBearerClient returns a new Client configured to use Bearer authentication.
+func NewBearerClient(token, base string) *Client {
+	return &Client{
+		ID:            "",
+		Token:         token,
+		Client:        defaultHttpClient,
+		Base:          base,
+		UploadType:    JSON,
+		ErrorParser:   DefaultErrorParser,
+		useBearerAuth: true,
 	}
 }
 
@@ -95,6 +110,8 @@ func (c *Client) DialSocket(socket string, transport *http.Transport) {
 		}
 	}
 	switch tp := c.Client.Transport.(type) {
+	// TODO both of these cases clobbber the existing transport which isn't
+	// ideal.
 	case nil, *Transport:
 		c.Client.Transport = &Transport{
 			RoundTripper: transport,
@@ -102,7 +119,7 @@ func (c *Client) DialSocket(socket string, transport *http.Transport) {
 			Output:       DefaultTransport.Output,
 		}
 	case *http.Transport:
-		tp = transport
+		c.Client.Transport = transport
 	default:
 		panic(fmt.Sprintf("could not set DialSocket on unknown transport: %#v", tp))
 	}
@@ -111,11 +128,17 @@ func (c *Client) DialSocket(socket string, transport *http.Transport) {
 // NewRequest creates a new Request and sets basic auth based on the client's
 // authentication information.
 func (c *Client) NewRequest(method, path string, body io.Reader) (*http.Request, error) {
+	// see for example https://github.com/meterup/github-release/issues/1 - if
+	// the path contains the full URL including the base, strip it out
+	path = strings.TrimPrefix(path, c.Base)
 	req, err := http.NewRequest(method, c.Base+path, body)
 	if err != nil {
 		return nil, err
 	}
-	if c.ID != "" || c.Token != "" {
+	switch {
+	case c.useBearerAuth && c.Token != "":
+		req.Header.Add("Authorization", "Bearer "+c.Token)
+	case !c.useBearerAuth && (c.ID != "" || c.Token != ""):
 		req.SetBasicAuth(c.ID, c.Token)
 	}
 	req.Header.Add("User-Agent", ua)
