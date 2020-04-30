@@ -15,13 +15,13 @@ jobs:
     - run: echo "::set-env name=GOPATH::$GITHUB_WORKSPACE"
     - run: echo "::set-env name=PATH::$GITHUB_WORKSPACE/bin:$PATH"
 
-    - uses: actions/cache@v1
+    - uses: actions/cache@master
       with:
         path: /go/bin
         key: ${{ runner.os }}-gobin-v1-${{ hashFiles('**/Gopkg.lock') }}
         restore-keys: |
           ${{ runner.os }}-gobin-v1-
-    - uses: actions/cache@v1
+    - uses: actions/cache@master
       with:
         path: /github/home/.cache
         key: ${{ runner.os }}-go-v1-${{ hashFiles('**/Gopkg.lock') }}
