@@ -61,9 +61,11 @@ func main() {
 	}
 	handler := services.NewDownstreamHandler(logger, parsedUrl.String(), downstreamPassword)
 	srv, err := dequeuer.New(ctx, dequeuer.Config{
-		NumConns:        dbConns,
-		Processor:       services.NewJobProcessor(handler),
-		StuckJobTimeout: dequeuer.DefaultStuckJobTimeout,
+		Logger:              logger,
+		NumConns:            dbConns,
+		Processor:           services.NewJobProcessor(handler),
+		StuckJobTimeout:     dequeuer.DefaultStuckJobTimeout,
+		DisableMetaShutdown: os.Getenv("DISABLE_META_SHUTDOWN") == "true",
 	})
 	checkError(err)
 

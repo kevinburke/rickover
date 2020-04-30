@@ -65,7 +65,6 @@ func TestHomepageRendersVersion(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	req.SetBasicAuth("foo", "bar")
-	u := &UnsafeBypassAuthorizer{}
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, 200)
 	test.AssertEquals(t, w.Header().Get("Content-Type"), "text/html; charset=utf-8")
@@ -95,7 +94,6 @@ func TestServerVersionHeader(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	req.SetBasicAuth("foo", "bar")
-	u := &UnsafeBypassAuthorizer{}
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Header().Get("Server"), fmt.Sprintf("rickover/%s", config.Version))
 }
@@ -105,7 +103,6 @@ func TestStrictTransportHeader(t *testing.T) {
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 	req.SetBasicAuth("foo", "bar")
-	u := &UnsafeBypassAuthorizer{}
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Header().Get("Strict-Transport-Security"), "max-age=31536000; includeSubDomains; preload")
 }

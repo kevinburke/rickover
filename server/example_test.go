@@ -16,6 +16,6 @@ func (a *auther) Authorize(userId, token string) *rest.Error {
 func Example() {
 	// Get all server routes using your authorization handler, then listen on
 	// port 9090
-	handler := Get(&auther{})
+	handler := Get(Config{Auth: &auther{}})
 	http.ListenAndServe(":9090", handler)
 }

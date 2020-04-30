@@ -13,7 +13,7 @@ FROM jobs
 WHERE name = $1;
 
 -- name: GetAllJobs :many
-SELECT * FROM jobs;
+SELECT * FROM jobs WHERE name != 'meta.shutdown';
 
 -- name: DeleteAllJobs :execrows
 DELETE FROM jobs;

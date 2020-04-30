@@ -14,7 +14,7 @@ import (
 	"github.com/kevinburke/rickover/test"
 )
 
-var u = &UnsafeBypassAuthorizer{}
+var u = Config{Auth: &UnsafeBypassAuthorizer{}}
 
 func Test405WrongMethod(t *testing.T) {
 	t.Parallel()
@@ -189,7 +189,7 @@ func Test401AuthorizerFailure(t *testing.T) {
 	}
 	req.SetBasicAuth("usr_123", "tok_123")
 	f := new(forbiddenAuthorizer)
-	Get(f).ServeHTTP(w, req)
+	Get(Config{Auth: f}).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusUnauthorized)
 	var e rest.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
@@ -210,7 +210,7 @@ func Test401SetsToken(t *testing.T) {
 	}
 	req.SetBasicAuth("usr_123", "tok_123")
 	f := new(forbiddenAuthorizer)
-	Get(f).ServeHTTP(w, req)
+	Get(Config{Auth: f}).ServeHTTP(w, req)
 	test.AssertEquals(t, f.UserId, "usr_123")
 	test.AssertEquals(t, f.Token, "tok_123")
 }

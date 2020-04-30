@@ -1,5 +1,11 @@
 ## Version 2.0
 
+- `server.Get` now accepts a `Config` object, with an `Authorizer` field,
+instead of accepting an `Authorizer` directly.
+
+- When a new job type is created, the dequeuer will restart itself to ensure
+  that jobs begin processing for the new job type immediately.
+
 - Requests without Basic Auth credentials will only receive a 401 if the
 Authorizer returns an error.
 

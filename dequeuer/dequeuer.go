@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -24,8 +25,10 @@ func init() {
 }
 
 type WorkServer struct {
-	processor       *services.JobProcessor
-	stuckJobTimeout time.Duration
+	log.Logger
+	processor           *services.JobProcessor
+	stuckJobTimeout     time.Duration
+	disableMetaShutdown bool
 }
 
 type Config struct {
@@ -36,31 +39,57 @@ type Config struct {
 	NumConns        int
 	Processor       *services.JobProcessor
 	StuckJobTimeout time.Duration
+
+	// Enqueueing a job with name "meta.shutdown" will shutdown the dequeuer (so
+	// it can be restarted with a job type added or removed).
+	//
+	// Enable this flag if you have long running jobs that could be interfered
+	// with if the dequeuer restarted.
+	DisableMetaShutdown bool
+
+	Logger log.Logger
 }
 
 // New creates a new WorkServer.
 func New(ctx context.Context, cfg Config) (WorkServer, error) {
+	if cfg.Connector == nil {
+		cfg.Connector = db.DefaultConnection
+	}
 	if err := setup.DB(ctx, cfg.Connector, cfg.NumConns); err != nil {
 		return WorkServer{}, err
 	}
 	if cfg.StuckJobTimeout == 0 {
 		cfg.StuckJobTimeout = 7 * time.Minute
 	}
-	return WorkServer{processor: cfg.Processor, stuckJobTimeout: cfg.StuckJobTimeout}, nil
+	var logger log.Logger
+	if cfg.Logger != nil {
+		logger = cfg.Logger
+	} else {
+		logger = log.New()
+	}
+	return WorkServer{
+		processor:           cfg.Processor,
+		stuckJobTimeout:     cfg.StuckJobTimeout,
+		Logger:              logger.New("svc", "dequeuer"),
+		disableMetaShutdown: cfg.DisableMetaShutdown,
+	}, nil
 }
 
 // How long to wait before marking a job as "stuck"
 const DefaultStuckJobTimeout = 7 * time.Minute
 
-// Run starts the WorkServer and several daemons (to measure queue depth,
-// process "stuck" jobs)
-func (w *WorkServer) Run(ctx context.Context) error {
-	group, errctx := errgroup.WithContext(ctx)
+var errMetaShutdown = errors.New("dequeuer: received meta.shutdown request")
+
+func (w *WorkServer) run(ctx context.Context) error {
+	cctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	group, errctx := errgroup.WithContext(cctx)
 	group.Go(func() error {
 		pools, err := CreatePools(ctx, w.processor, 200*time.Millisecond)
 		if err != nil {
 			return err
 		}
+		w.Info("started all worker pools", "jobs", len(pools), "workers", pools.NumDequeuers())
 		<-errctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -71,6 +100,11 @@ func (w *WorkServer) Run(ctx context.Context) error {
 		}
 		return nil
 	})
+	if !w.disableMetaShutdown {
+		group.Go(func() error {
+			return runShutdownWorker(errctx, w.Logger, cancel)
+		})
+	}
 	group.Go(func() error {
 		setup.MeasureActiveQueries(errctx, 1*time.Second)
 		return nil
@@ -92,6 +126,22 @@ func (w *WorkServer) Run(ctx context.Context) error {
 	return group.Wait()
 }
 
+// Run starts the WorkServer and several daemons (to measure queue depth,
+// process "stuck" jobs)
+func (w *WorkServer) Run(ctx context.Context) error {
+	for {
+		err := w.run(ctx)
+		if err == errMetaShutdown && w.metaShutdownEnabled() {
+			continue
+		}
+		return err
+	}
+}
+
+func (w WorkServer) metaShutdownEnabled() bool {
+	return !w.disableMetaShutdown
+}
+
 func NewPool(ctx context.Context, name string) *Pool {
 	tctx, cancel := context.WithCancel(ctx)
 	return &Pool{
@@ -110,6 +160,45 @@ func (ps Pools) NumDequeuers() int {
 		dequeuerCount = dequeuerCount + len(pool.Dequeuers)
 	}
 	return dequeuerCount
+}
+
+type shutdownWorker struct {
+	log.Logger
+	cancel   context.CancelFunc
+	canceled *int32
+}
+
+func (s shutdownWorker) Sleep(failedAttempts int32) time.Duration {
+	return time.Second
+}
+
+func (s shutdownWorker) DoWork(ctx context.Context, job *newmodels.QueuedJob) error {
+	err := services.HandleStatusCallback(ctx, s.Logger, job.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, job.Attempts, false)
+	if err != nil {
+		s.Warn("received shutdown request but could not update queued job in database. canceling dequeuer anyway", "id", job.ID.String(), "err", err)
+	}
+	atomic.StoreInt32(s.canceled, 1)
+	s.Info("received shutdown request, canceling all dequeuers...")
+	s.cancel()
+	return nil
+}
+
+func runShutdownWorker(ctx context.Context, logger log.Logger, cancel context.CancelFunc) error {
+	p := NewPool(ctx, "meta.shutdown")
+	canceled := int32(0)
+	sw := &shutdownWorker{Logger: logger, cancel: cancel, canceled: &canceled}
+	err := p.AddDequeuer(ctx, sw)
+	if err != nil {
+		return err
+	}
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	p.Shutdown(shutdownCtx)
+	if canceled := atomic.LoadInt32(sw.canceled); canceled == 1 {
+		return errMetaShutdown
+	}
+	return nil
 }
 
 // CreatePools creates job pools for all jobs in the database. The provided
@@ -201,8 +290,9 @@ type Worker interface {
 	Sleep(failedAttempts int32) time.Duration
 }
 
-// AddDequeuer adds a Dequeuer to the Pool. w should be the work that the
-// Dequeuer will do with a dequeued job.
+// AddDequeuer adds a Dequeuer to the Pool and starts running it in a separate
+// goroutine. w should be the work that the Dequeuer will do with a dequeued
+// job.
 func (p *Pool) AddDequeuer(ctx context.Context, w Worker) error {
 	select {
 	case <-ctx.Done():

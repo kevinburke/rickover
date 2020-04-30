@@ -14,7 +14,7 @@ import (
 
 func newSSAServer() (*SharedSecretAuthorizer, http.Handler) {
 	ssa := NewSharedSecretAuthorizer()
-	return ssa, Get(ssa)
+	return ssa, Get(Config{Auth: ssa})
 }
 
 var empty = json.RawMessage([]byte("{}"))

@@ -20,7 +20,7 @@ import (
 	"github.com/kevinburke/rickover/test/factory"
 )
 
-var u = &server.UnsafeBypassAuthorizer{}
+var u = server.Config{Auth: &server.UnsafeBypassAuthorizer{}}
 
 var testPassword = "XmTGoDTRyVd8HHiuzFtPzF8N&or7ETPaPVvWuR;d"
 

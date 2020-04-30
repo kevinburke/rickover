@@ -43,7 +43,7 @@ func configure(ctx context.Context) (http.Handler, error) {
 
 	// If you run this in production, change this user.
 	server.AddUser("test", "hymanrickover")
-	return server.Get(server.DefaultAuthorizer), nil
+	return server.Get(server.Config{Auth: server.DefaultAuthorizer}), nil
 }
 
 func main() {

@@ -42,6 +42,11 @@ POST /v1/jobs
 
 This returns a [models.Job][job-type] on success.
 
+Creating a new job will also send a signal to the dequeuer to ask it to restart
+itself (so it can create workers to process jobs using the new job type). If you
+do not want to enable this behavior, set `DisableMetaShutdown: true` in the
+`Config` for the dequeuer or for the server.
+
 [job-type]: https://godoc.org/github.com/kevinburke/rickover/models#Job
 
 #### Enqueue a new job
