@@ -100,7 +100,7 @@ func (w *WorkServer) run(ctx context.Context) error {
 		}
 		return nil
 	})
-	if !w.disableMetaShutdown {
+	if w.metaShutdownEnabled() {
 		group.Go(func() error {
 			return runShutdownWorker(errctx, w.Logger, cancel)
 		})
