@@ -12,8 +12,8 @@ jobs:
       with:
          path: './src/github.com/kevinburke/rickover'
     # staticcheck needs this for GOPATH
-    - run: echo "::set-env name=GOPATH::$GITHUB_WORKSPACE"
-    - run: echo "::set-env name=PATH::$GITHUB_WORKSPACE/bin:$PATH"
+    - run: echo "GOPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
+    - run: echo "PATH=$GITHUB_WORKSPACE/bin:$PATH" >> $GITHUB_ENV
 
     - uses: actions/cache@master
       with:
