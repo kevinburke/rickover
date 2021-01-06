@@ -1,4 +1,4 @@
-package rest
+package restclient
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/kevinburke/rest/resterror"
 )
 
 type UploadType string
@@ -21,7 +23,7 @@ var JSON UploadType = "application/json"
 // FormURLEncoded specifies you'd like to upload form-urlencoded data.
 var FormURLEncoded UploadType = "application/x-www-form-urlencoded"
 
-const Version = "2.1"
+const Version = "2.4"
 
 var ua string
 
@@ -52,9 +54,9 @@ type Client struct {
 	useBearerAuth bool
 }
 
-// NewClient returns a new Client with the given user and password. Base is the
-// scheme+domain to hit for all requests.
-func NewClient(user, pass, base string) *Client {
+// New returns a new Client with HTTP Basic Auth with the given user and
+// password. Base is the scheme+domain to hit for all requests.
+func New(user, pass, base string) *Client {
 	return &Client{
 		ID:          user,
 		Token:       pass,
@@ -196,7 +198,7 @@ func DefaultErrorParser(resp *http.Response) error {
 		return err
 	}
 	defer resp.Body.Close()
-	rerr := new(Error)
+	rerr := new(resterror.Error)
 	err = json.Unmarshal(resBody, rerr)
 	if err != nil {
 		return fmt.Errorf("invalid response body: %s", string(resBody))

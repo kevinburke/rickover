@@ -3,12 +3,12 @@ package server
 import (
 	"net/http"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 )
 
 type auther struct{}
 
-func (a *auther) Authorize(userId, token string) *rest.Error {
+func (a *auther) Authorize(userId, token string) *resterror.Error {
 	// Implement your auth scheme here.
 	return nil
 }

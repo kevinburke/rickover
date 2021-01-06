@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/test"
 )
@@ -23,7 +23,7 @@ func Test405WrongMethod(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusMethodNotAllowed)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Method not allowed")
@@ -38,7 +38,7 @@ func Test400MissingId(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func Test400MissingStrategy(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: delivery_strategy")
@@ -82,7 +82,7 @@ func Test400InvalidStrategy(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Invalid delivery strategy: foo")
@@ -104,7 +104,7 @@ func Test400AtMostOnceAndAttempts(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Cannot set retry attempts to a number greater than 1 if the delivery strategy is at_most_once")
@@ -123,7 +123,7 @@ func Test400AttemptsString(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Invalid request: bad JSON. Double check the types of the fields you sent")
@@ -144,7 +144,7 @@ func Test400ZeroAttempts(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Attempts must be set to a number greater than zero")
@@ -165,7 +165,7 @@ func Test400ConcurrencyNotSet(t *testing.T) {
 	req.SetBasicAuth("foo", "bar")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Concurrency must be set to a number greater than zero")
@@ -191,7 +191,7 @@ func Test401AuthorizerFailure(t *testing.T) {
 	f := new(forbiddenAuthorizer)
 	Get(Config{Auth: f}).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusUnauthorized)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	if err != nil {
 		t.Fatal(err)

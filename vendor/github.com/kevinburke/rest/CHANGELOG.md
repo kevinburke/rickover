@@ -1,3 +1,18 @@
+## 2.3
+
+Move rest.Client to new restclient package, and rest.Error to a new resterror
+package. If you would like to remove the 3rd party dependencies like log15 from
+your client code, change imports as follows:
+
+```
+rest.Error => resterror.Error
+rest.NewClient => restclient.New
+rest.Client => restclient.Client
+rest.DefaultTransport => restclient.DefaultTransport
+```
+
+The old imports should still work the same way as before thanks to aliasing.
+
 ## 2.2
 
 Support Bearer authentication.

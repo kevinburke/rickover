@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/test"
 )
@@ -19,7 +19,7 @@ func Test404JSONUnknownResource(t *testing.T) {
 	req := httptest.NewRequest("GET", "/foo/unknown", nil)
 	DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusNotFound)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Resource not found")
@@ -52,7 +52,7 @@ func TestXForwardedProtoDisallowed(t *testing.T) {
 			test.AssertEquals(t, w.Code, 200)
 		} else {
 			test.AssertEquals(t, w.Code, 403)
-			var e rest.Error
+			var e resterror.Error
 			err := json.Unmarshal(w.Body.Bytes(), &e)
 			test.AssertNotError(t, err, "")
 			test.AssertEquals(t, e.ID, "insecure_request")

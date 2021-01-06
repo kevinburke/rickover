@@ -16,7 +16,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/restclient"
 )
 
 const defaultHTTPTimeout = 6500 * time.Millisecond
@@ -33,14 +33,14 @@ func init() {
 // to return a 202 and then make a callback to the job scheduler when the job
 // has finished running.
 type Client struct {
-	*rest.Client
+	*restclient.Client
 
 	Job *JobService
 }
 
 // NewClient creates a new Client.
 func NewClient(id, token, base string) *Client {
-	rc := rest.NewClient(id, token, base)
+	rc := restclient.New(id, token, base)
 	rc.Client = &http.Client{Timeout: defaultHTTPTimeout}
 	downstreamClient := &Client{Client: rc, Job: nil}
 	downstreamClient.Job = &JobService{Client: downstreamClient}

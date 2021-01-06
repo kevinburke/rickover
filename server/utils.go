@@ -7,6 +7,7 @@ import (
 
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 )
 
@@ -18,7 +19,7 @@ func getId(w http.ResponseWriter, r *http.Request, idStr string) (types.PrefixUU
 	if err != nil {
 		msg := strings.Replace(err.Error(), "types: ", "", 1)
 		msg = strings.Replace(msg, "uuid: ", "", 1)
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:    "invalid_uuid",
 			Title: msg,
 		})
@@ -28,7 +29,7 @@ func getId(w http.ResponseWriter, r *http.Request, idStr string) (types.PrefixUU
 		id.Prefix = queued_jobs.Prefix
 	}
 	if id.Prefix != queued_jobs.Prefix {
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:    "invalid_prefix",
 			Title: fmt.Sprintf("Please use %q for the uuid prefix, not %s", queued_jobs.Prefix, id.Prefix),
 		})

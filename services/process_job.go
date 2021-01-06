@@ -65,7 +65,7 @@ func (d *DownstreamHandler) Handle(ctx context.Context, qj *newmodels.QueuedJob)
 			return nil
 		} else {
 			switch aerr := err.(type) {
-			case *rest.Error:
+			case *resterror.Error:
 				if aerr.ID == "service_unavailable" {
 					metrics.Increment("post_job.unavailable")
 					time.Sleep(time.Duration(1<<i*UnavailableSleepFactor) * time.Millisecond)

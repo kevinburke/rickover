@@ -8,6 +8,7 @@ import (
 
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -34,7 +35,7 @@ func replayHandler() http.Handler {
 		var expiresAt types.NullTime
 		if err == nil {
 			if qj.Status == newmodels.JobStatusQueued {
-				apierr := &rest.Error{
+				apierr := &resterror.Error{
 					Title:    "Cannot replay a queued job. Wait for it to start",
 					ID:       "invalid_replay_attempt",
 					Instance: r.URL.Path,
@@ -67,7 +68,7 @@ func replayHandler() http.Handler {
 		}
 
 		if name != "" && jobName != name {
-			nfe := &rest.Error{
+			nfe := &resterror.Error{
 				Title:    "Job exists, but with a different name",
 				ID:       "job_not_found",
 				Instance: r.URL.Path,

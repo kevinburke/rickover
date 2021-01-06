@@ -21,6 +21,7 @@ import (
 	"github.com/kevinburke/go-types"
 	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/archived_jobs"
@@ -267,7 +268,7 @@ func createJob(useMetaShutdown bool) http.Handler {
 		// XXX check for content-type
 		err := json.NewDecoder(r.Body).Decode(&jr)
 		if err != nil {
-			rest.BadRequest(w, r, &rest.Error{
+			rest.BadRequest(w, r, &resterror.Error{
 				ID:    "invalid_request",
 				Title: "Invalid request: bad JSON. Double check the types of the fields you sent",
 			})
@@ -278,7 +279,7 @@ func createJob(useMetaShutdown bool) http.Handler {
 			return
 		}
 		if jr.Name == "meta.shutdown" {
-			rest.BadRequest(w, r, &rest.Error{
+			rest.BadRequest(w, r, &resterror.Error{
 				Title: "cannot create protected job name",
 				ID:    "forbidden_parameter",
 			})
@@ -289,7 +290,7 @@ func createJob(useMetaShutdown bool) http.Handler {
 			return
 		}
 		if jr.DeliveryStrategy != newmodels.DeliveryStrategyAtLeastOnce && jr.DeliveryStrategy != newmodels.DeliveryStrategyAtMostOnce {
-			err := &rest.Error{
+			err := &resterror.Error{
 				Instance: r.URL.Path,
 				ID:       "invalid_delivery_strategy",
 				Title:    fmt.Sprintf("Invalid delivery strategy: %s", jr.DeliveryStrategy),
@@ -299,7 +300,7 @@ func createJob(useMetaShutdown bool) http.Handler {
 		}
 
 		if jr.DeliveryStrategy == newmodels.DeliveryStrategyAtMostOnce && jr.Attempts > 1 {
-			err := &rest.Error{
+			err := &resterror.Error{
 				Instance: r.URL.Path,
 				ID:       "invalid_attempts",
 				Title:    "Cannot set retry attempts to a number greater than 1 if the delivery strategy is at_most_once",
@@ -335,7 +336,7 @@ func createJob(useMetaShutdown bool) http.Handler {
 		if err != nil {
 			switch terr := err.(type) {
 			case *pq.Error:
-				apierr := &rest.Error{
+				apierr := &resterror.Error{
 					Title:    terr.Message,
 					ID:       "invalid_parameter",
 					Instance: r.URL.Path,
@@ -438,7 +439,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		if qj.Name != name && name != "" {
 			// consider just serializing it if this is too annoying
-			nfe := &rest.Error{
+			nfe := &resterror.Error{
 				Title:    "Job exists, but with a different name",
 				ID:       "job_not_found",
 				Instance: r.URL.Path,
@@ -507,7 +508,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var ejr EnqueueJobRequest
 	err := json.NewDecoder(r.Body).Decode(&ejr)
 	if err != nil {
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:    "invalid_request",
 			Title: "Invalid request: bad JSON. Double check the types of the fields you sent",
 		})
@@ -563,7 +564,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case *queued_jobs.UnknownOrArchivedError:
 			_, err = jobs.GetRetry(r.Context(), name, 3)
 			if err != nil && err == sql.ErrNoRows {
-				nfe := &rest.Error{
+				nfe := &resterror.Error{
 					Title:    fmt.Sprintf("Job type %s not found", name),
 					ID:       "job_type_not_found",
 					Instance: fmt.Sprintf("/v1/jobs/%s", name),
@@ -572,7 +573,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				metrics.Increment(fmt.Sprintf("enqueue.%s.not_found", name))
 				return
 			} else {
-				alreadyArchived := &rest.Error{
+				alreadyArchived := &resterror.Error{
 					Title:    "Job has already been archived",
 					ID:       "job_already_archived",
 					Instance: fmt.Sprintf("/v1/jobs/%s/%s", name, id.String()),
@@ -590,7 +591,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				break
 			}
-			apierr := &rest.Error{
+			apierr := &resterror.Error{
 				Title:    terr.Message,
 				ID:       "invalid_parameter",
 				Instance: r.URL.Path,
@@ -624,17 +625,17 @@ func listArchivedJobs() http.Handler {
 			var err error
 			limit, err = strconv.Atoi(limitQ)
 			if err != nil {
-				rest.BadRequest(w, r, &rest.Error{Title: err.Error(), ID: "invalid_parameter"})
+				rest.BadRequest(w, r, &resterror.Error{Title: err.Error(), ID: "invalid_parameter"})
 				return
 			}
 			if limit <= 0 {
-				rest.BadRequest(w, r, &rest.Error{
+				rest.BadRequest(w, r, &resterror.Error{
 					Title: "limit cannot be negative", ID: "invalid_parameter",
 				})
 				return
 			}
 			if limit > 100 {
-				rest.BadRequest(w, r, &rest.Error{
+				rest.BadRequest(w, r, &resterror.Error{
 					Title: "limit cannot be greater than 100", ID: "invalid_parameter",
 				})
 				return

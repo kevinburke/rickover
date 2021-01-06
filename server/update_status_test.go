@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/test"
 )
 
@@ -24,7 +24,7 @@ func Test400EmptyStatusBody(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/v1/jobs/echo/job_123", b)
 	jsserver.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: status")
@@ -44,7 +44,7 @@ func Test400EmptyAttempts(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/v1/jobs/echo/job_123", b)
 	jsserver.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: attempt")

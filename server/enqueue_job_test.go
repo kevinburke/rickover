@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/test"
 )
 
@@ -32,7 +32,7 @@ func Test401UnknownUser(t *testing.T) {
 	_, server := newSSAServer()
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusForbidden)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Username or password are invalid. Please double check your credentials")
@@ -53,7 +53,7 @@ func Test401UnknownPassword(t *testing.T) {
 	req.SetBasicAuth("401-unknown-password", "wrong_password")
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusForbidden)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Incorrect password for user 401-unknown-password")
@@ -74,7 +74,7 @@ func Test400NoBody(t *testing.T) {
 	req.SetBasicAuth("test", "password")
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: data")
@@ -96,7 +96,7 @@ func Test400EmptyBody(t *testing.T) {
 	req.SetBasicAuth("test", "password")
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err = json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Missing required field: data")
@@ -116,7 +116,7 @@ func Test400InvalidUUID(t *testing.T) {
 	req.SetBasicAuth("test", "password")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "incorrect UUID format zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
@@ -156,7 +156,7 @@ func Test413TooLargeJSON(t *testing.T) {
 	req.SetBasicAuth("test", "password")
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusRequestEntityTooLarge)
-	var e rest.Error
+	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, e.Title, "Data parameter is too large (100KB max)")

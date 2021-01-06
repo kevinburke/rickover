@@ -58,12 +58,16 @@
   revision = "7b49e1fecbdf8e6fa5bf56acafa0d8a112392bc4"
 
 [[projects]]
-  digest = "1:c893166867c54aecd135d73c156d1264de99d0a2fa04ebe8813dc0a382c2ffde"
+  digest = "1:e084bc0e1be6168bcd420b4e078eab09338e24a810dcf7e0412c98db8f9b1778"
   name = "github.com/kevinburke/rest"
-  packages = ["."]
+  packages = [
+    ".",
+    "restclient",
+    "resterror",
+  ]
   pruneopts = "UT"
-  revision = "b3f4200b8f350123a0f3088d9de469c2a453f71a"
-  version = "2.2"
+  revision = "7f83c79a062216fda503113f7c598b086cbe00f7"
+  version = "2.4"
 
 [[projects]]
   digest = "1:696d670dc1768c81e60e30fe758de6db1546f82e17391de50e0f2a53e6c1e2dd"
@@ -149,6 +153,7 @@
     "github.com/kevinburke/go.uuid",
     "github.com/kevinburke/handlers",
     "github.com/kevinburke/rest",
+    "github.com/kevinburke/rest/restclient",
     "github.com/kevinburke/semaphore",
     "github.com/lib/pq",
     "golang.org/x/sync/errgroup",

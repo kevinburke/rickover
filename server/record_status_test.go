@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/test"
 )
 
@@ -17,7 +17,7 @@ func TestNoBody400(t *testing.T) {
 	w := httptest.NewRecorder()
 	Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
-	var err rest.Error
+	var err resterror.Error
 	e := json.Unmarshal(w.Body.Bytes(), &err)
 	test.AssertNotError(t, e, "unmarshaling body")
 	test.AssertEquals(t, err.ID, "missing_parameter")

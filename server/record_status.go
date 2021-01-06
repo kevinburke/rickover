@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -43,7 +44,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var jsr JobStatusRequest
 	err := json.NewDecoder(r.Body).Decode(&jsr)
 	if err != nil {
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:    "invalid_request",
 			Title: "Invalid request: bad JSON. Double check the types of the fields you sent",
 		})
@@ -58,7 +59,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if jsr.Status != newmodels.ArchivedJobStatusSucceeded && jsr.Status != newmodels.ArchivedJobStatusFailed {
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:       "invalid_status",
 			Title:    fmt.Sprintf("Invalid job status: %s", jsr.Status),
 			Instance: r.URL.Path,
@@ -83,7 +84,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == queued_jobs.ErrNotFound {
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:       "duplicate_status_request",
 			Title:    "This job has already been archived, or was never queued",
 			Instance: r.URL.Path,
@@ -92,7 +93,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == services.ErrFailedDecrement {
-		rest.BadRequest(w, r, &rest.Error{
+		rest.BadRequest(w, r, &resterror.Error{
 			ID:       "decrement_failed",
 			Title:    err.Error(),
 			Instance: r.URL.Path,

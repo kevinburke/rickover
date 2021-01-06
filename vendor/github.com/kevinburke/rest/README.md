@@ -9,7 +9,7 @@ documentation, please [see the godoc documentation][gddo].
 The `Client` struct makes it easy to interact with a JSON API.
 
 ```go
-client := rest.NewClient("username", "password", "http://ipinfo.io")
+client := restclient.New("username", "password", "http://ipinfo.io")
 req, _ := client.NewRequest("GET", "/json", nil)
 type resp struct {
     City string `json:"city"`
@@ -22,9 +22,9 @@ fmt.Println(r.Ip)
 
 ### Transport
 
-Use the `rest.Transport` as the `http.Transport` to easily inspect the raw HTTP
-request and response. Set `DEBUG_HTTP_TRAFFIC=true` in your environment to dump
-HTTP requests and responses to stderr.
+Use the `restclient.Transport` as the `http.Transport` to easily inspect the raw
+HTTP request and response. Set `DEBUG_HTTP_TRAFFIC=true` in your environment to
+dump HTTP requests and responses to stderr.
 
 ### Defining Custom Error Responses
 
@@ -58,7 +58,7 @@ but includes support for debugging HTTP requests. Add it like so:
 
 ```go
 client := http.Client{
-    Transport: &rest.Transport{
+    Transport: &restclient.Transport{
         Debug: true,
         Output: os.Stderr,
         Transport: http.DefaultTransport,
