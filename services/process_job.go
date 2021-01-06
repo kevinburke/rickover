@@ -11,7 +11,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/downstream"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/queued_jobs"
