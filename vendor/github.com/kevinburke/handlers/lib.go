@@ -27,6 +27,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 )
 
 const Version = "0.39"
@@ -140,7 +141,7 @@ func BasicAuth(h http.Handler, realm string, users map[string]string) http.Handl
 			if user == "" {
 				rest.Unauthorized(w, r, realm)
 			} else {
-				rest.Forbidden(w, r, &rest.Error{
+				rest.Forbidden(w, r, &resterror.Error{
 					Title: "Username or password are invalid. Please double check your credentials",
 					ID:    "forbidden",
 				})
@@ -148,7 +149,7 @@ func BasicAuth(h http.Handler, realm string, users map[string]string) http.Handl
 			return
 		}
 		if subtle.ConstantTimeCompare([]byte(pass), []byte(serverPass)) != 1 {
-			rest.Forbidden(w, r, &rest.Error{
+			rest.Forbidden(w, r, &resterror.Error{
 				Title:    fmt.Sprintf("Incorrect password for user %s", user),
 				ID:       "incorrect_password",
 				Instance: r.URL.Path,

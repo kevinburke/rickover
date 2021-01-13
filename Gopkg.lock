@@ -51,11 +51,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7bad0b2aa85c44e4647a5e13696d8d4f6d520eb7c3a720065b2cfeea2df8312e"
+  digest = "1:caded5ce2e0d8a8e4168ff449909560f68f254a27fb5e951ea62194895f02d06"
   name = "github.com/kevinburke/handlers"
   packages = ["."]
   pruneopts = "UT"
-  revision = "bbd40ede15ac78c11912207b187114c27fe49739"
+  revision = "18b309ca38bfb359c1275c1305f71f5562229ebb"
 
 [[projects]]
   digest = "1:e084bc0e1be6168bcd420b4e078eab09338e24a810dcf7e0412c98db8f9b1778"
