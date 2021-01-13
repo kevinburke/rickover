@@ -11,7 +11,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/go-types"
-	"github.com/kevinburke/rest"
+	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -82,7 +82,7 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 
 // 1. Create a job type
 // 2. Enqueue a job
-// 3. Create a test server that replies with a 503 rest.Error
+// 3. Create a test server that replies with a 503 resterror.Error
 // 4. Ensure that the worker retries
 func TestWorkerRetriesJSON503(t *testing.T) {
 	test.SetUp(t)
@@ -117,7 +117,7 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 			count++
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(&rest.Error{
+			json.NewEncoder(w).Encode(&resterror.Error{
 				Title:  "Service Unavailable",
 				Detail: "The server will be shutting down momentarily and cannot accept new work.",
 				ID:     "service_unavailable",

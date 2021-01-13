@@ -159,11 +159,13 @@ func BasicAuth(h http.Handler, realm string, users map[string]string) http.Handl
 	})
 }
 
-// Debug prints debugging information about the request to stdout if the
+var envFunc = os.Getenv
+
+// Debug prints debugging information about the request to output if the
 // DEBUG_HTTP_TRAFFIC environment variable is set to "true".
-func Debug(h http.Handler) http.Handler {
+func DebugWriter(h http.Handler, output io.Writer) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if os.Getenv("DEBUG_HTTP_TRAFFIC") != "true" {
+		if envFunc("DEBUG_HTTP_TRAFFIC") != "true" && envFunc("DEBUG_HTTP_SERVER_TRAFFIC") != "true" {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -190,14 +192,21 @@ func Debug(h http.Handler) http.Handler {
 		}
 		w.WriteHeader(res.Code)
 		_, _ = b.WriteString("\r\n")
-		writer := io.MultiWriter(w, b)
-		_, _ = res.Body.WriteTo(writer)
 		if w.Header().Get("Content-Encoding") == "gzip" {
-			os.Stderr.WriteString("[binary data omitted]")
+			io.WriteString(b, "[binary data omitted]")
+			res.Body.WriteTo(w)
 		} else {
-			_, _ = b.WriteTo(os.Stderr)
+			writer := io.MultiWriter(w, b)
+			res.Body.WriteTo(writer)
 		}
+		_, _ = b.WriteTo(output)
 	})
+}
+
+// Debug prints debugging information about the request to stderr if the
+// DEBUG_HTTP_TRAFFIC environment variable is set to "true".
+func Debug(h http.Handler) http.Handler {
+	return DebugWriter(h, os.Stderr)
 }
 
 // responseLogger is wrapper of http.ResponseWriter that keeps track of its HTTP

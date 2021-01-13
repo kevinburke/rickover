@@ -5,7 +5,12 @@ os: linux
 dist: trusty
 
 before_script:
-  - go get ./...
+  - go get -t ./...
+
+go:
+  - tip
+  - 1.15.x
+  - 1.14.x
 
 script:
   - make race-test

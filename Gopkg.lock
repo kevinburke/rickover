@@ -51,11 +51,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6290255f5ec1537faa2b28889cccf74d7e4220d70cf8e41ba0068050e0019137"
+  digest = "1:7bad0b2aa85c44e4647a5e13696d8d4f6d520eb7c3a720065b2cfeea2df8312e"
   name = "github.com/kevinburke/handlers"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7b49e1fecbdf8e6fa5bf56acafa0d8a112392bc4"
+  revision = "bbd40ede15ac78c11912207b187114c27fe49739"
 
 [[projects]]
   digest = "1:e084bc0e1be6168bcd420b4e078eab09338e24a810dcf7e0412c98db8f9b1778"
@@ -154,6 +154,7 @@
     "github.com/kevinburke/handlers",
     "github.com/kevinburke/rest",
     "github.com/kevinburke/rest/restclient",
+    "github.com/kevinburke/rest/resterror",
     "github.com/kevinburke/semaphore",
     "github.com/lib/pq",
     "golang.org/x/sync/errgroup",
