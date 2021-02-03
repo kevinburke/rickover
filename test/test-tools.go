@@ -15,27 +15,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
-
-// Return short format caller info for printing errors, so errors don't all
-// appear to come from test-tools.go.
-func caller() string {
-	_, file, line, _ := runtime.Caller(2)
-	splits := strings.Split(file, "/")
-	filename := splits[len(splits)-1]
-	return fmt.Sprintf("%s:%d:", filename, line)
-}
 
 // Assert a boolean
 func Assert(t testing.TB, result bool, message string) {
 	t.Helper()
 	if !result {
-		t.Fatalf("%s %s", caller(), message)
+		t.Fatal(message)
 	}
 }
 
@@ -43,7 +32,7 @@ func Assert(t testing.TB, result bool, message string) {
 func AssertNotNil(t testing.TB, obj interface{}, message string) {
 	t.Helper()
 	if obj == nil {
-		t.Fatalf("%s %s", caller(), message)
+		t.Fatal(message)
 	}
 }
 
@@ -51,7 +40,7 @@ func AssertNotNil(t testing.TB, obj interface{}, message string) {
 func AssertNotError(t testing.TB, err error, message string) {
 	t.Helper()
 	if err != nil {
-		t.Fatalf("%s %s: %s", caller(), message, err)
+		t.Fatalf("%s: %s", message, err)
 	}
 }
 
@@ -59,7 +48,7 @@ func AssertNotError(t testing.TB, err error, message string) {
 func AssertError(t testing.TB, err error, message string) {
 	t.Helper()
 	if err == nil {
-		t.Fatalf("%s %s: expected error but received none", caller(), message)
+		t.Fatalf("%s: expected error but received none", message)
 	}
 }
 
@@ -67,7 +56,7 @@ func AssertError(t testing.TB, err error, message string) {
 func AssertEquals(t testing.TB, one interface{}, two interface{}) {
 	t.Helper()
 	if one != two {
-		t.Fatalf("%s [%v] != [%v]", caller(), one, two)
+		t.Fatalf("[%v] != [%v]", one, two)
 	}
 }
 
@@ -75,7 +64,7 @@ func AssertEquals(t testing.TB, one interface{}, two interface{}) {
 func AssertDeepEquals(t testing.TB, one interface{}, two interface{}) {
 	t.Helper()
 	if !reflect.DeepEqual(one, two) {
-		t.Fatalf("%s [%+v] !(deep)= [%+v]", caller(), one, two)
+		t.Fatalf("[%+v] !(deep)= [%+v]", one, two)
 	}
 }
 
@@ -89,7 +78,7 @@ func AssertMarshaledEquals(t testing.TB, one interface{}, two interface{}) {
 	AssertNotError(t, err, "Could not marshal 2nd argument")
 
 	if !bytes.Equal(oneJSON, twoJSON) {
-		t.Fatalf("%s [%s] !(json)= [%s]", caller(), oneJSON, twoJSON)
+		t.Fatalf("[%s] !(json)= [%s]", oneJSON, twoJSON)
 	}
 }
 
@@ -98,7 +87,7 @@ func AssertMarshaledEquals(t testing.TB, one interface{}, two interface{}) {
 func AssertNotEquals(t testing.TB, one interface{}, two interface{}) {
 	t.Helper()
 	if one == two {
-		t.Fatalf("%s [%v] == [%v]", caller(), one, two)
+		t.Fatalf("[%v] == [%v]", one, two)
 	}
 }
 
@@ -106,8 +95,7 @@ func AssertNotEquals(t testing.TB, one interface{}, two interface{}) {
 func AssertByteEquals(t testing.TB, one []byte, two []byte) {
 	t.Helper()
 	if !bytes.Equal(one, two) {
-		t.Fatalf("%s Byte [%s] != [%s]",
-			caller(),
+		t.Fatalf("Byte [%s] != [%s]",
 			base64.StdEncoding.EncodeToString(one),
 			base64.StdEncoding.EncodeToString(two))
 	}
@@ -117,16 +105,7 @@ func AssertByteEquals(t testing.TB, one []byte, two []byte) {
 func AssertIntEquals(t testing.TB, one int, two int) {
 	t.Helper()
 	if one != two {
-		t.Fatalf("%s Int [%d] != [%d]", caller(), one, two)
-	}
-}
-
-// AssertBigIntEquals uses the big.Int.cmp() method to measure whether
-// one and two are equal
-func AssertBigIntEquals(t testing.TB, one *big.Int, two *big.Int) {
-	t.Helper()
-	if one.Cmp(two) != 0 {
-		t.Fatalf("%s Int [%d] != [%d]", caller(), one, two)
+		t.Fatalf("Int [%d] != [%d]", one, two)
 	}
 }
 
@@ -134,7 +113,7 @@ func AssertBigIntEquals(t testing.TB, one *big.Int, two *big.Int) {
 func AssertContains(t testing.TB, haystack string, needle string) {
 	t.Helper()
 	if !strings.Contains(haystack, needle) {
-		t.Fatalf("%s String [%s] does not contain [%s]", caller(), haystack, needle)
+		t.Fatalf("String [%s] does not contain [%s]", haystack, needle)
 	}
 }
 
@@ -142,7 +121,7 @@ func AssertContains(t testing.TB, haystack string, needle string) {
 func AssertNotContains(t testing.TB, haystack string, needle string) {
 	t.Helper()
 	if strings.Contains(haystack, needle) {
-		t.Fatalf("%s String [%s] contains [%s]", caller(), haystack, needle)
+		t.Fatalf("String [%s] contains [%s]", haystack, needle)
 	}
 }
 
