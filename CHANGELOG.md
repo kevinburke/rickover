@@ -1,5 +1,13 @@
 ## Version 2.0
 
+- Implemented GET/POST /v2/job-types, to create or retrieve information about
+  job types.
+
+## Version 1.3
+
+This is a checkpoint release before making more breaking changes; there may be
+breaking changes from version 1.2.
+
 - `server.Get` now accepts a `Config` object, with an `Authorizer` field,
 instead of accepting an `Authorizer` directly.
 
