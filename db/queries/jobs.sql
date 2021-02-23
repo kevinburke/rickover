@@ -8,12 +8,13 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetJob :one
-SELECT *
-FROM jobs
+SELECT * FROM jobs
 WHERE name = $1;
 
 -- name: GetAllJobs :many
-SELECT * FROM jobs WHERE name != 'meta.shutdown';
+SELECT * FROM jobs
+WHERE name != 'meta.shutdown'
+ORDER BY auto_id DESC;
 
 -- name: DeleteAllJobs :execrows
 DELETE FROM jobs;

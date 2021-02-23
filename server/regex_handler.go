@@ -46,6 +46,10 @@ func (h *RegexpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, route := range h.routes {
 		if route.pattern.MatchString(r.URL.Path) {
 			upperMethod := strings.ToUpper(r.Method)
+			if route.methods == nil && upperMethod != "OPTIONS" {
+				route.handler.ServeHTTP(w, r)
+				return
+			}
 			for _, method := range route.methods {
 				if strings.ToUpper(method) == upperMethod {
 					route.handler.ServeHTTP(w, r)

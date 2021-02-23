@@ -23,12 +23,14 @@ import (
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/config"
+	"github.com/kevinburke/rickover/dbtohttp"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/db"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
+	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/setup"
 	"github.com/lib/pq"
 )
@@ -93,12 +95,12 @@ func New(ctx context.Context, cfg Config) (http.Handler, error) {
 	if err := setup.DB(ctx, cfg.Connector, cfg.NumConns); err != nil {
 		return nil, err
 	}
-	s := Get(cfg)
-	return s, nil
+	return Get(cfg), nil
 }
 
 // Get returns a http.Handler with all routes initialized using the given
-// Authorizer.
+// Authorizer. Get assumes that setup.DB has been called; to call both use
+// New.
 func Get(c Config) http.Handler {
 	a := c.Auth
 	if a == nil {
@@ -106,15 +108,21 @@ func Get(c Config) http.Handler {
 	}
 	h := new(RegexpHandler)
 
+	db := newmodels.DB
 	useMetaShutdown := !c.DisableMetaShutdown
-	h.Handler(jobsRoute, []string{"POST"}, authHandler(createJob(useMetaShutdown), a))
-	h.Handler(getJobRoute, []string{"GET"}, authHandler(handleJobRoute(useMetaShutdown), a))
-	h.Handler(getJobTypeRoute, []string{"GET"}, authHandler(getJobType(), a))
+
+	// v1
+	h.Handler(jobsRoute, []string{"POST"}, authHandler(createJob(db, useMetaShutdown), a))
+	h.Handler(getJobRoute, []string{"GET"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
+	h.Handler(getJobTypeRoute, []string{"GET"}, authHandler(getJobType(db), a))
 
 	h.Handler(replayRoute, []string{"POST"}, authHandler(replayHandler(), a))
 
-	h.Handler(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(useMetaShutdown), a))
-	h.Handler(archivedJobsRoute, []string{"GET"}, authHandler(listArchivedJobs(), a))
+	h.Handler(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
+	h.Handler(archivedJobsRoute, []string{"GET"}, authHandler(listArchivedJobs(db), a))
+
+	// v2
+	h.Handler(regexp.MustCompile(`^/v2/(.+)$`), nil, authHandler(V2(db), a))
 
 	h.Handler(regexp.MustCompile("^/debug/pprof$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Index), a))
 	h.Handler(regexp.MustCompile("^/debug/pprof/cmdline$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Cmdline), a))
@@ -145,7 +153,7 @@ func serverHeaderHandler(h http.Handler) http.Handler {
 		} else {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		}
-		w.Header().Set("Server", fmt.Sprintf("rickover/%s", config.Version))
+		w.Header().Set("Server", "rickover/"+config.Version)
 		h.ServeHTTP(w, r)
 	})
 }
@@ -235,10 +243,10 @@ type CreateJobRequest struct {
 // GET /v1/jobs/:jobName
 //
 // Get a job type by name. Returns a models.Job or an error
-func getJobType() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func getJobType(db *newmodels.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		jobName := getJobTypeRoute.FindStringSubmatch(r.URL.Path)[1]
-		job, err := jobs.Get(r.Context(), jobName)
+		job, err := db.GetJob(r.Context(), jobName)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				notFound(w, new404(r))
@@ -247,8 +255,8 @@ func getJobType() http.Handler {
 			rest.ServerError(w, r, err)
 			return
 		}
-		respond(Logger, w, r, job)
-	})
+		respond(Logger, w, r, dbtohttp.Job(job))
+	}
 }
 
 var Logger = handlers.Logger
@@ -257,8 +265,8 @@ var Logger = handlers.Logger
 //
 // createJob returns a http.HandlerFunc that responds to job creation requests
 // using the given authorizer interface.
-func createJob(useMetaShutdown bool) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
 			rest.BadRequest(w, r, createEmptyErr("name", r.URL.Path))
 			return
@@ -326,7 +334,9 @@ func createJob(useMetaShutdown bool) http.Handler {
 			Attempts:         jr.Attempts,
 		}
 		start := time.Now()
-		job, err := jobs.Create(newmodels.CreateJobParams{
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		job, err := db.CreateJob(ctx, newmodels.CreateJobParams{
 			Name:             jobData.Name,
 			DeliveryStrategy: jobData.DeliveryStrategy,
 			Concurrency:      jobData.Concurrency,
@@ -354,12 +364,12 @@ func createJob(useMetaShutdown bool) http.Handler {
 				// a shutdown job, which will instruct the dequeuer to shut down.
 				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 				defer cancel()
-				if err := createMetaShutdownJob(ctx); err != nil {
+				if err := createMetaShutdownJob(ctx, db); err != nil {
 					return
 				}
 				id := types.GenerateUUID("job_")
 				runAfter := time.Now().Add(-1 * 5 * time.Second)
-				queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+				services.Enqueue(ctx, db, newmodels.EnqueueJobParams{
 					ID: id, Name: "meta.shutdown", RunAfter: runAfter,
 					ExpiresAt: types.NullTime{
 						Valid: true,
@@ -369,9 +379,9 @@ func createJob(useMetaShutdown bool) http.Handler {
 				})
 			}()
 		}
-		created(Logger, w, r, job)
+		created(Logger, w, r, dbtohttp.Job(job))
 		metrics.Increment("type.create.success")
-	})
+	}
 }
 
 // An EnqueueJobRequest is sent in the body of a request to PUT
@@ -388,15 +398,15 @@ type EnqueueJobRequest struct {
 }
 
 // GET/POST/PUT disambiguator for /v1/jobs/:name/:id
-func handleJobRoute(useMetaShutdown bool) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func handleJobRoute(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			j := jobStatusUpdater{}
 			j.ServeHTTP(w, r)
 			return
 		}
 		if r.Method == "PUT" {
-			j := jobEnqueuer{useMetaShutdown: useMetaShutdown}
+			j := jobEnqueuer{db: db, useMetaShutdown: useMetaShutdown}
 			j.ServeHTTP(w, r)
 			return
 		}
@@ -406,7 +416,7 @@ func handleJobRoute(useMetaShutdown bool) http.HandlerFunc {
 			return
 		}
 		rest.NotAllowed(w, r)
-	})
+	}
 }
 
 type jobStatusGetter struct{}
@@ -472,11 +482,11 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	metrics.Increment("job.get.archived.success")
 }
 
-func createMetaShutdownJob(ctx context.Context) error {
+func createMetaShutdownJob(ctx context.Context, db *newmodels.Queries) error {
 	// This job type might not exist, we need to create it first to avoid
 	// a foreign key error. Just try to create the job every time - we
 	// shouldn't be hitting this endpoint that often
-	_, err := newmodels.DB.CreateJob(ctx, newmodels.CreateJobParams{
+	_, err := db.CreateJob(ctx, newmodels.CreateJobParams{
 		Name:             "meta.shutdown",
 		DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
 		Attempts:         1,
@@ -493,6 +503,7 @@ func createMetaShutdownJob(ctx context.Context) error {
 
 // jobEnqueuer satisfies the Handler interface.
 type jobEnqueuer struct {
+	db              *newmodels.Queries
 	useMetaShutdown bool
 }
 
@@ -553,9 +564,11 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	name := jobIdRoute.FindStringSubmatch(r.URL.Path)[1]
 	if name == "meta.shutdown" {
-		createMetaShutdownJob(r.Context())
+		createMetaShutdownJob(r.Context(), j.db)
 	}
-	queuedJob, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	queuedJob, err := services.Enqueue(ctx, j.db, newmodels.EnqueueJobParams{
 		ID: id, Name: name, RunAfter: ejr.RunAfter.Time,
 		ExpiresAt: ejr.ExpiresAt, Data: ejr.Data,
 	})
@@ -584,7 +597,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		case *pq.Error:
 			if terr.Code == "23505" { // unique violation
-				queuedJob, err = queued_jobs.Get(r.Context(), id)
+				queuedJob, err = j.db.GetQueuedJob(r.Context(), id)
 				if err != nil {
 					rest.ServerError(w, r, err)
 					return
@@ -611,7 +624,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // GET /v1/archived-jobs
-func listArchivedJobs() http.Handler {
+func listArchivedJobs(db *newmodels.Queries) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
 		typ := query.Get("name")
@@ -645,19 +658,19 @@ func listArchivedJobs() http.Handler {
 		var err error
 		switch {
 		case typ == "" && status == "":
-			ajs, err = newmodels.DB.ListArchivedJobs(r.Context(), int32(limit))
+			ajs, err = db.ListArchivedJobs(r.Context(), int32(limit))
 		case status == "" && typ != "":
-			ajs, err = newmodels.DB.ListArchivedJobsByName(r.Context(), newmodels.ListArchivedJobsByNameParams{
+			ajs, err = db.ListArchivedJobsByName(r.Context(), newmodels.ListArchivedJobsByNameParams{
 				Limit: int32(limit),
 				Name:  typ,
 			})
 		case status != "" && typ == "":
-			ajs, err = newmodels.DB.ListArchivedJobsByStatus(r.Context(), newmodels.ListArchivedJobsByStatusParams{
+			ajs, err = db.ListArchivedJobsByStatus(r.Context(), newmodels.ListArchivedJobsByStatusParams{
 				Limit:  int32(limit),
 				Status: newmodels.ArchivedJobStatus(status),
 			})
 		case status != "" && typ != "":
-			ajs, err = newmodels.DB.ListArchivedJobsByNameStatus(r.Context(), newmodels.ListArchivedJobsByNameStatusParams{
+			ajs, err = db.ListArchivedJobsByNameStatus(r.Context(), newmodels.ListArchivedJobsByNameStatusParams{
 				Limit:  int32(limit),
 				Name:   typ,
 				Status: newmodels.ArchivedJobStatus(status),

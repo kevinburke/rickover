@@ -7,14 +7,18 @@ import (
 	"github.com/kevinburke/rickover/models/db"
 )
 
-var DB *Queries
+// DefaultServer relies on this being initialized (and not overwritten)
+var DB = new(Queries)
 
 func Setup(ctx context.Context) error {
 	if !db.Connected() {
 		return errors.New("newmodels: no database connection, bailing")
 	}
 
-	var err error
-	DB, err = Prepare(ctx, db.Conn)
-	return err
+	qs, err := Prepare(ctx, db.Conn)
+	if err != nil {
+		return err
+	}
+	*DB = *qs
+	return nil
 }

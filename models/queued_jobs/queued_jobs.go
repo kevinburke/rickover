@@ -39,6 +39,8 @@ var StuckJobLimit = 100
 // Enqueue creates a new queued job with the given ID and fields. A
 // sql.ErrNoRows will be returned if the `name` does not exist in the jobs
 // table. Otherwise the QueuedJob will be returned.
+//
+// Deprecated: use services.Enqueue instead.
 func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
 	qj, err := newmodels.DB.EnqueueJob(context.TODO(), params)
 	if err != nil {

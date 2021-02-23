@@ -62,6 +62,8 @@ func Test401UnknownPassword(t *testing.T) {
 
 func Test400NoBody(t *testing.T) {
 	t.Parallel()
+	test.SetUp(t)
+	defer test.TearDown(t)
 	w := httptest.NewRecorder()
 	ejr := &EnqueueJobRequest{
 		Data: empty,
@@ -84,6 +86,8 @@ func Test400NoBody(t *testing.T) {
 
 func Test400EmptyBody(t *testing.T) {
 	t.Parallel()
+	test.SetUp(t)
+	defer test.TearDown(t)
 	w := httptest.NewRecorder()
 	var v interface{}
 	err := json.Unmarshal([]byte("{}"), &v)
@@ -92,7 +96,7 @@ func Test400EmptyBody(t *testing.T) {
 	json.NewEncoder(b).Encode(v)
 	ssa, server := newSSAServer()
 	ssa.AddUser("test", "password")
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab", b)
+	req := httptest.NewRequest("PUT", "/v1/jobs/echo/job_f17373a6-2cd7-4010-afba-eebc6dc6f9ab", b)
 	req.SetBasicAuth("test", "password")
 	server.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusBadRequest)
@@ -106,6 +110,8 @@ func Test400EmptyBody(t *testing.T) {
 
 func Test400InvalidUUID(t *testing.T) {
 	t.Parallel()
+	test.SetUp(t)
+	defer test.TearDown(t)
 	w := httptest.NewRecorder()
 	ejr := &EnqueueJobRequest{
 		Data: empty,
@@ -125,6 +131,8 @@ func Test400InvalidUUID(t *testing.T) {
 
 func Test400WrongPrefix(t *testing.T) {
 	t.Parallel()
+	test.SetUp(t)
+	defer test.TearDown(t)
 	w := httptest.NewRecorder()
 	ejr := &EnqueueJobRequest{
 		Data: empty,
@@ -139,6 +147,8 @@ func Test400WrongPrefix(t *testing.T) {
 
 func Test413TooLargeJSON(t *testing.T) {
 	t.Parallel()
+	test.SetUp(t)
+	defer test.TearDown(t)
 	w := httptest.NewRecorder()
 	// 4 bytes per record - the value and the quotes around it.
 	var bigarr [100 * 256]string
