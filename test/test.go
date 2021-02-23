@@ -49,7 +49,7 @@ func TearDown(t testing.TB) {
 	t.Helper()
 	if db.Connected() {
 		if err := TruncateTables(t); err != nil {
-			t.Fatal(err)
+			t.Fatalf("%s: could not truncate tables, got %v", t.Name(), err)
 		}
 	}
 }
