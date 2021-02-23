@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-const Version = "1.2"
+const Version = "1.3"
 
 // GetInt loads the environment variable varName, converts it to an integer,
 // and returns that integer or an error.
