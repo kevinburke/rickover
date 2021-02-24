@@ -72,7 +72,7 @@ func TestFailedUnretryableArchivesJob(t *testing.T) {
 
 var validRequest = server.CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
+	DeliveryStrategy: string(newmodels.DeliveryStrategyAtLeastOnce),
 	Attempts:         7,
 	Concurrency:      3,
 }
@@ -94,7 +94,7 @@ func TestCreateJobReturnsJob(t *testing.T) {
 	test.AssertEquals(t, job.Name, validRequest.Name)
 	test.AssertEquals(t, job.Attempts, validRequest.Attempts)
 	test.AssertEquals(t, job.Concurrency, validRequest.Concurrency)
-	test.AssertEquals(t, job.DeliveryStrategy, validRequest.DeliveryStrategy)
+	test.AssertEquals(t, job.DeliveryStrategy, newmodels.DeliveryStrategy(validRequest.DeliveryStrategy))
 	diff := time.Since(job.CreatedAt)
 	test.Assert(t, diff < 25*time.Millisecond, fmt.Sprintf("diff: %v created: %v", diff, job.CreatedAt))
 }
@@ -113,7 +113,7 @@ func TestSuccessWritesDBRecord(t *testing.T) {
 	test.AssertEquals(t, job.Name, validRequest.Name)
 	test.AssertEquals(t, job.Attempts, validRequest.Attempts)
 	test.AssertEquals(t, job.Concurrency, validRequest.Concurrency)
-	test.AssertEquals(t, job.DeliveryStrategy, validRequest.DeliveryStrategy)
+	test.AssertEquals(t, job.DeliveryStrategy, newmodels.DeliveryStrategy(validRequest.DeliveryStrategy))
 	diff := time.Since(job.CreatedAt)
 	test.Assert(t, diff < 50*time.Millisecond, fmt.Sprintf("insert took too long: %v\n", diff))
 	name, offset := job.CreatedAt.Zone()
@@ -318,7 +318,7 @@ func Test200JobFound(t *testing.T) {
 
 var validAtMostOnceRequest = server.CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
+	DeliveryStrategy: string(newmodels.DeliveryStrategyAtMostOnce),
 	Attempts:         1,
 	Concurrency:      3,
 }

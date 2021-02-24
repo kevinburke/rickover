@@ -18,12 +18,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kevinburke/go-types"
+	types "github.com/kevinburke/go-types"
 	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/config"
 	"github.com/kevinburke/rickover/dbtohttp"
+	"github.com/kevinburke/rickover/httptypes"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/db"
@@ -231,14 +232,8 @@ func debugRequestBodyHandler(h http.Handler) http.Handler {
 	})
 }
 
-// CreateJobRequest is a struct of data sent in the body of a request to
-// /v1/jobs
-type CreateJobRequest struct {
-	Name             string                     `json:"name"`
-	Attempts         int16                      `json:"attempts"`
-	Concurrency      int16                      `json:"concurrency"`
-	DeliveryStrategy newmodels.DeliveryStrategy `json:"delivery_strategy"`
-}
+// Deprecated: Use httptypes.CreateJobTypeRequest instead.
+type CreateJobRequest = httptypes.CreateJobTypeRequest
 
 // GET /v1/jobs/:jobName
 //
@@ -272,8 +267,7 @@ func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
 			return
 		}
 		defer r.Body.Close()
-		var jr CreateJobRequest
-		// XXX check for content-type
+		var jr httptypes.CreateJobTypeRequest
 		err := json.NewDecoder(r.Body).Decode(&jr)
 		if err != nil {
 			rest.BadRequest(w, r, &resterror.Error{
@@ -293,11 +287,12 @@ func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
 			})
 			return
 		}
-		if jr.DeliveryStrategy == newmodels.DeliveryStrategy("") {
+		strategy := newmodels.DeliveryStrategy(jr.DeliveryStrategy)
+		if strategy == "" {
 			rest.BadRequest(w, r, createEmptyErr("delivery_strategy", r.URL.Path))
 			return
 		}
-		if jr.DeliveryStrategy != newmodels.DeliveryStrategyAtLeastOnce && jr.DeliveryStrategy != newmodels.DeliveryStrategyAtMostOnce {
+		if strategy != newmodels.DeliveryStrategyAtLeastOnce && strategy != newmodels.DeliveryStrategyAtMostOnce {
 			err := &resterror.Error{
 				Instance: r.URL.Path,
 				ID:       "invalid_delivery_strategy",
@@ -307,7 +302,7 @@ func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
 			return
 		}
 
-		if jr.DeliveryStrategy == newmodels.DeliveryStrategyAtMostOnce && jr.Attempts > 1 {
+		if strategy == newmodels.DeliveryStrategyAtMostOnce && jr.Attempts > 1 {
 			err := &resterror.Error{
 				Instance: r.URL.Path,
 				ID:       "invalid_attempts",
@@ -327,21 +322,16 @@ func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
 			return
 		}
 
-		jobData := newmodels.Job{
+		params := newmodels.CreateJobParams{
 			Name:             jr.Name,
-			DeliveryStrategy: jr.DeliveryStrategy,
+			DeliveryStrategy: strategy,
 			Concurrency:      jr.Concurrency,
 			Attempts:         jr.Attempts,
 		}
 		start := time.Now()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		job, err := db.CreateJob(ctx, newmodels.CreateJobParams{
-			Name:             jobData.Name,
-			DeliveryStrategy: jobData.DeliveryStrategy,
-			Concurrency:      jobData.Concurrency,
-			Attempts:         jobData.Attempts,
-		})
+		job, err := db.CreateJob(ctx, params)
 		metrics.Time("type.create.latency", time.Since(start))
 		if err != nil {
 			switch terr := err.(type) {
@@ -384,18 +374,8 @@ func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
 	}
 }
 
-// An EnqueueJobRequest is sent in the body of a request to PUT
-// /v1/jobs/:job-name/:job-id.
-type EnqueueJobRequest struct {
-	// Job data to enqueue.
-	Data json.RawMessage `json:"data"`
-	// The earliest time we can run this job. If not specified, defaults to the
-	// current time.
-	RunAfter types.NullTime `json:"run_after"`
-	// The latest time we can run this job. If not specified, defaults to null
-	// (never expires).
-	ExpiresAt types.NullTime `json:"expires_at"`
-}
+// Deprecated: use httptypes.EnqueueJobRequest instead.
+type EnqueueJobRequest = httptypes.EnqueueJobRequest
 
 // GET/POST/PUT disambiguator for /v1/jobs/:name/:id
 func handleJobRoute(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
@@ -516,7 +496,7 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	var ejr EnqueueJobRequest
+	var ejr httptypes.EnqueueJobRequest
 	err := json.NewDecoder(r.Body).Decode(&ejr)
 	if err != nil {
 		rest.BadRequest(w, r, &resterror.Error{

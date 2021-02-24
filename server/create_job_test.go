@@ -74,7 +74,7 @@ func Test400InvalidStrategy(t *testing.T) {
 	b := new(bytes.Buffer)
 	body := CreateJobRequest{
 		Name:             "email-signup",
-		DeliveryStrategy: newmodels.DeliveryStrategy("foo"),
+		DeliveryStrategy: "foo",
 	}
 	json.NewEncoder(b).Encode(body)
 	req, err := http.NewRequest("POST", "/v1/jobs", b)
@@ -95,7 +95,7 @@ func Test400AtMostOnceAndAttempts(t *testing.T) {
 	b := new(bytes.Buffer)
 	body := CreateJobRequest{
 		Name:             "email-signup",
-		DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
+		DeliveryStrategy: string(newmodels.DeliveryStrategyAtMostOnce),
 		Attempts:         7,
 	}
 	json.NewEncoder(b).Encode(body)
@@ -135,7 +135,7 @@ func Test400ZeroAttempts(t *testing.T) {
 	b := new(bytes.Buffer)
 	body := CreateJobRequest{
 		Name:             "email-signup",
-		DeliveryStrategy: newmodels.DeliveryStrategyAtMostOnce,
+		DeliveryStrategy: string(newmodels.DeliveryStrategyAtMostOnce),
 		Attempts:         0,
 	}
 	json.NewEncoder(b).Encode(body)
@@ -156,7 +156,7 @@ func Test400ConcurrencyNotSet(t *testing.T) {
 	b := new(bytes.Buffer)
 	body := CreateJobRequest{
 		Name:             "email-signup",
-		DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
+		DeliveryStrategy: string(newmodels.DeliveryStrategyAtLeastOnce),
 		Attempts:         3,
 	}
 	json.NewEncoder(b).Encode(body)
@@ -173,7 +173,7 @@ func Test400ConcurrencyNotSet(t *testing.T) {
 
 var validRequest = CreateJobRequest{
 	Name:             "email-signup",
-	DeliveryStrategy: newmodels.DeliveryStrategyAtLeastOnce,
+	DeliveryStrategy: string(newmodels.DeliveryStrategyAtLeastOnce),
 	Attempts:         7,
 	Concurrency:      3,
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rest/resterror"
+	"github.com/kevinburke/rickover/httptypes"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -18,19 +19,7 @@ import (
 // jobStatusUpdater satisfies the Handler interface.
 type jobStatusUpdater struct{}
 
-// The body of a POST request to /v1/jobs/:job-name/:job-id, recording the
-// status of a job.
-type JobStatusRequest struct {
-	// Should be "succeeded" or "failed".
-	Status newmodels.ArchivedJobStatus `json:"status"`
-
-	// Attempt is sent to ensure we don't attempt a null write.
-	Attempt *int16 `json:"attempt"` // pointer to distinguish between null/omitted value and 0.
-
-	// Retryable indicates whether a failure is retryable. The default is true.
-	// Set to false to avoid retrying a particular failure.
-	Retryable *bool `json:"retryable"` // pointer to distinguish between null value and false.
-}
+type JobStatusRequest = httptypes.JobStatusRequest
 
 // POST /v1/jobs/:name/:id
 //
@@ -41,7 +30,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	var jsr JobStatusRequest
+	var jsr httptypes.JobStatusRequest
 	err := json.NewDecoder(r.Body).Decode(&jsr)
 	if err != nil {
 		rest.BadRequest(w, r, &resterror.Error{
@@ -58,7 +47,8 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rest.BadRequest(w, r, createEmptyErr("attempt", r.URL.Path))
 		return
 	}
-	if jsr.Status != newmodels.ArchivedJobStatusSucceeded && jsr.Status != newmodels.ArchivedJobStatusFailed {
+	status := newmodels.ArchivedJobStatus(jsr.Status)
+	if status != newmodels.ArchivedJobStatusSucceeded && status != newmodels.ArchivedJobStatusFailed {
 		rest.BadRequest(w, r, &resterror.Error{
 			ID:       "invalid_status",
 			Title:    fmt.Sprintf("Invalid job status: %s", jsr.Status),
@@ -78,7 +68,7 @@ func (j *jobStatusUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 	defer cancel()
-	err = services.HandleStatusCallback(ctx, rest.Logger, id, name, jsr.Status, *jsr.Attempt, *jsr.Retryable)
+	err = services.HandleStatusCallback(ctx, rest.Logger, id, name, status, *jsr.Attempt, *jsr.Retryable)
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
 		return

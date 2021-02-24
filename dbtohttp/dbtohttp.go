@@ -1,12 +1,12 @@
 package dbtohttp
 
 import (
+	"github.com/kevinburke/rickover/httptypes"
 	"github.com/kevinburke/rickover/newmodels"
-	"github.com/kevinburke/rickover/responses"
 )
 
-func Job(j newmodels.Job) responses.Job {
-	return responses.Job{
+func Job(j newmodels.Job) httptypes.Job {
+	return httptypes.Job{
 		Name:             j.Name,
 		DeliveryStrategy: string(j.DeliveryStrategy),
 		Attempts:         j.Attempts,
@@ -15,8 +15,8 @@ func Job(j newmodels.Job) responses.Job {
 	}
 }
 
-func Jobs(js []newmodels.Job) []responses.Job {
-	resp := make([]responses.Job, len(js))
+func Jobs(js []newmodels.Job) []httptypes.Job {
+	resp := make([]httptypes.Job, len(js))
 	for i := range js {
 		resp[i] = Job(js[i])
 	}

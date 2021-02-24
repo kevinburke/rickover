@@ -3,6 +3,10 @@
 - Implemented GET/POST /v2/job-types, to create or retrieve information about
   job types.
 
+- The new `httptypes` package contains requests and responses, which allow other
+  packages to avoid importing all of Rickover just to get the HTTP request
+  types.
+
 ## Version 1.3
 
 This is a checkpoint release before making more breaking changes; there may be

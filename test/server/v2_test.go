@@ -34,7 +34,7 @@ func TestV2(t *testing.T) {
 		test.AssertEquals(t, job.Name, validRequest.Name)
 		test.AssertEquals(t, job.Attempts, validRequest.Attempts)
 		test.AssertEquals(t, job.Concurrency, validRequest.Concurrency)
-		test.AssertEquals(t, job.DeliveryStrategy, validRequest.DeliveryStrategy)
+		test.AssertEquals(t, job.DeliveryStrategy, newmodels.DeliveryStrategy(validRequest.DeliveryStrategy))
 		diff := time.Since(job.CreatedAt)
 		test.Assert(t, diff < 25*time.Millisecond, fmt.Sprintf("diff: %v created: %v", diff, job.CreatedAt))
 	})
