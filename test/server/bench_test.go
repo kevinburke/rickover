@@ -9,6 +9,7 @@ import (
 	"time"
 
 	types "github.com/kevinburke/go-types"
+	"github.com/kevinburke/rickover/httptypes"
 	"github.com/kevinburke/rickover/server"
 	"github.com/kevinburke/rickover/test"
 	"github.com/kevinburke/rickover/test/factory"
@@ -17,7 +18,7 @@ import (
 func BenchmarkEnqueue(b *testing.B) {
 	defer test.TearDown(b)
 	expiry := time.Now().UTC().Add(5 * time.Minute)
-	ejr := &server.EnqueueJobRequest{
+	ejr := &httptypes.EnqueueJobRequest{
 		Data:      factory.EmptyData,
 		ExpiresAt: types.NullTime{Valid: true, Time: expiry},
 	}

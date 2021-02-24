@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kevinburke/go-types"
+	"github.com/kevinburke/rickover/httptypes"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
@@ -70,7 +71,7 @@ func TestFailedUnretryableArchivesJob(t *testing.T) {
 	test.AssertEquals(t, aj.Attempts, qj.Attempts-1)
 }
 
-var validRequest = server.CreateJobRequest{
+var validRequest = httptypes.CreateJobTypeRequest{
 	Name:             "email-signup",
 	DeliveryStrategy: string(newmodels.DeliveryStrategyAtLeastOnce),
 	Attempts:         7,
@@ -214,7 +215,7 @@ func Test202SuccessfulEnqueue(t *testing.T) {
 
 	expiry := time.Now().UTC().Add(5 * time.Minute)
 	w := httptest.NewRecorder()
-	ejr := &server.EnqueueJobRequest{
+	ejr := &httptypes.EnqueueJobRequest{
 		Data:      factory.EmptyData,
 		ExpiresAt: types.NullTime{Valid: true, Time: expiry},
 	}
@@ -252,12 +253,12 @@ func Test202RandomId(t *testing.T) {
 	_ = factory.CreateJob(t, factory.SampleJob)
 
 	w := httptest.NewRecorder()
-	ejr := &server.EnqueueJobRequest{
+	ejr := &httptypes.EnqueueJobRequest{
 		Data: factory.EmptyData,
 	}
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(ejr)
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/random_id", b)
+	req := httptest.NewRequest("PUT", "/v1/jobs/echo/random_id", b)
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusAccepted)
@@ -269,15 +270,15 @@ func Test202DuplicateEnqueue(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	w2 := httptest.NewRecorder()
-	ejr := &server.EnqueueJobRequest{
+	ejr := &httptypes.EnqueueJobRequest{
 		Data: factory.EmptyData,
 	}
 	bits, _ := json.Marshal(ejr)
-	req, _ := http.NewRequest("PUT", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", bytes.NewReader(bits))
+	req := httptest.NewRequest("PUT", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", bytes.NewReader(bits))
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w, req)
 
-	req, _ = http.NewRequest("PUT", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", bytes.NewReader(bits))
+	req = httptest.NewRequest("PUT", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", bytes.NewReader(bits))
 	req.SetBasicAuth("test", testPassword)
 	server.DefaultServer.ServeHTTP(w2, req)
 	test.AssertEquals(t, w2.Code, http.StatusAccepted)
@@ -291,7 +292,7 @@ func Test404JobNotFound(t *testing.T) {
 	test.SetUp(t)
 	t.Parallel()
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/jobs/unknown", nil)
+	req := httptest.NewRequest("GET", "/v1/jobs/unknown", nil)
 	req.SetBasicAuth("usr_123", "tok_123")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusNotFound)
@@ -310,13 +311,13 @@ func Test200JobFound(t *testing.T) {
 	_, err := jobs.Create(sampleJob)
 	test.AssertNotError(t, err, "")
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/jobs/echo", nil)
+	req := httptest.NewRequest("GET", "/v1/jobs/echo", nil)
 	req.SetBasicAuth("usr_123", "tok_123")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)
 }
 
-var validAtMostOnceRequest = server.CreateJobRequest{
+var validAtMostOnceRequest = httptypes.CreateJobTypeRequest{
 	Name:             "email-signup",
 	DeliveryStrategy: string(newmodels.DeliveryStrategyAtMostOnce),
 	Attempts:         1,
@@ -329,8 +330,7 @@ func TestCreateJobAtMostOnceSuccess(t *testing.T) {
 	w := httptest.NewRecorder()
 	b := new(bytes.Buffer)
 	json.NewEncoder(b).Encode(validAtMostOnceRequest)
-	req, err := http.NewRequest("POST", "/v1/jobs", b)
-	test.AssertNotError(t, err, "")
+	req := httptest.NewRequest("POST", "/v1/jobs", b)
 	req.SetBasicAuth("usr_123", "tok_123")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusCreated)
