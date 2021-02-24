@@ -118,11 +118,12 @@ func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	}
 	dat, err := json.Marshal(RD)
 	test.AssertNotError(t, err, "marshaling RD")
-	qj, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
-		ID: RandomId("job_"), Name: job.Name, RunAfter: now, ExpiresAt: expires, Data: dat,
-	})
+	qj, err := services.Enqueue(context.Background(), newmodels.DB,
+		newmodels.EnqueueJobParams{
+			ID: RandomId("job_"), Name: job.Name, RunAfter: now, ExpiresAt: expires, Data: dat,
+		})
 	test.AssertNotError(t, err, "create job failed")
-	return qj
+	return &qj
 }
 
 func CreateArchivedJob(t *testing.T, data json.RawMessage, status newmodels.ArchivedJobStatus) *newmodels.ArchivedJob {
@@ -171,12 +172,12 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.
 	} else {
 		id = JobId
 	}
-	qj, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+	qj, err := services.Enqueue(context.Background(), newmodels.DB, newmodels.EnqueueJobParams{
 		ID: id, Name: j.Name, RunAfter: runAfter, ExpiresAt: expiresAt,
 		Data: data,
 	})
 	test.AssertNotError(t, err, fmt.Sprintf("Error creating queued job %s (job name %s)", id, j.Name))
-	return job, qj
+	return job, &qj
 }
 
 // Processor returns a simple JobProcessor, with a client pointing at the given

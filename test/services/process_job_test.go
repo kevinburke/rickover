@@ -14,7 +14,6 @@ import (
 	"github.com/kevinburke/rest/resterror"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/jobs"
-	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
 	"github.com/kevinburke/rickover/test"
@@ -65,9 +64,11 @@ func testExpiredJobNotEnqueued(t *testing.T) {
 		Valid: true,
 		Time:  time.Now().UTC().Add(-5 * time.Millisecond),
 	}
-	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", time.Now().UTC(), expiresAt, factory.EmptyData))
+	ctx := context.Background()
+	qj, err := services.Enqueue(ctx, newmodels.DB,
+		newParams(factory.JobId, "echo", time.Now().UTC(), expiresAt, factory.EmptyData))
 	test.AssertNotError(t, err, "")
-	err = jp.DoWork(context.Background(), qj)
+	err = jp.DoWork(ctx, &qj)
 	test.AssertNotError(t, err, "")
 	for {
 		select {
@@ -103,7 +104,7 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 	var data json.RawMessage
 	data, err = json.Marshal(factory.RD)
 	test.AssertNotError(t, err, "")
-	qj, err := queued_jobs.Enqueue(newParams(pid, "echo", time.Now(), types.NullTime{Valid: false}, data))
+	qj, err := services.Enqueue(context.Background(), newmodels.DB, newParams(pid, "echo", time.Now(), types.NullTime{Valid: false}, data))
 	test.AssertNotError(t, err, "")
 
 	var mu sync.Mutex
@@ -135,7 +136,7 @@ func TestWorkerRetriesJSON503(t *testing.T) {
 	}))
 	defer s.Close()
 	jp := factory.Processor(s.URL)
-	err = jp.DoWork(context.Background(), qj)
+	err = jp.DoWork(context.Background(), &qj)
 	test.AssertNotError(t, err, "")
 }
 

@@ -60,7 +60,7 @@ func testEnqueueNoData(t *testing.T) {
 	runAfter := time.Now().UTC()
 
 	qjid := types.GenerateUUID("job_")
-	_, err = queued_jobs.Enqueue(newmodels.EnqueueJobParams{
+	_, err = services.Enqueue(context.Background(), newmodels.DB, newmodels.EnqueueJobParams{
 		ID:        qjid,
 		Name:      j.Name,
 		RunAfter:  runAfter,
@@ -95,9 +95,11 @@ func TestEnqueueJobExists(t *testing.T) {
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
 
-	_, err = queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
+	_, err = services.Enqueue(context.Background(), newmodels.DB,
+		newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
-	_, err = queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
+	_, err = services.Enqueue(context.Background(), newmodels.DB,
+		newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	switch terr := err.(type) {
 	case *pq.Error:
@@ -115,7 +117,8 @@ func testEnqueueUnknownJobTypeErrNoRows(t *testing.T) {
 
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	_, err := queued_jobs.Enqueue(newParams(factory.JobId, "unknownJob", runAfter, expiresAt, empty))
+	_, err := services.Enqueue(context.Background(), newmodels.DB,
+		newParams(factory.JobId, "unknownJob", runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	test.AssertEquals(t, err.Error(), "Job type unknownJob does not exist or the job with that id has already been archived")
 }
@@ -129,7 +132,8 @@ func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	_, err = queued_jobs.Enqueue(newParams(qj.ID, qj.Name, runAfter, expiresAt, empty))
+	_, err = services.Enqueue(context.Background(), newmodels.DB,
+		newParams(qj.ID, qj.Name, runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
 	test.AssertEquals(t, err.Error(), "Job type "+qj.Name+" does not exist or the job with that id has already been archived")
 }
@@ -212,7 +216,8 @@ func TestDataRoundtrip(t *testing.T) {
 	var d json.RawMessage
 	d, err = json.Marshal(user)
 	test.AssertNotError(t, err, "")
-	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, d))
+	qj, err := services.Enqueue(context.Background(), newmodels.DB,
+		newParams(factory.JobId, "echo", runAfter, expiresAt, d))
 	test.AssertNotError(t, err, "")
 
 	gotQj, err := queued_jobs.Get(context.Background(), qj.ID)
@@ -282,7 +287,8 @@ func TestAcquireDoesntGetFutureJob(t *testing.T) {
 
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC().Add(20 * time.Millisecond)
-	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
+	qj, err := services.Enqueue(context.Background(), newmodels.DB,
+		newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Acquire(context.TODO(), qj.Name, 1)
 	test.AssertEquals(t, err, sql.ErrNoRows)
@@ -291,19 +297,21 @@ func TestAcquireDoesntGetFutureJob(t *testing.T) {
 func TestAcquireDoesntGetInProgressJob(t *testing.T) {
 	test.SetUp(t)
 	defer test.TearDown(t)
+	ctx := context.Background()
 
 	_, err := jobs.Create(sampleJob)
 	test.AssertNotError(t, err, "")
 
 	expiresAt := types.NullTime{Valid: false}
 	runAfter := time.Now().UTC()
-	qj, err := queued_jobs.Enqueue(newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
+	qj, err := services.Enqueue(ctx, newmodels.DB,
+		newParams(factory.JobId, "echo", runAfter, expiresAt, empty))
 	test.AssertNotError(t, err, "")
-	qj, err = queued_jobs.Acquire(context.TODO(), qj.Name, 1)
+	qj2, err := queued_jobs.Acquire(ctx, qj.Name, 1)
 	test.AssertNotError(t, err, "")
-	test.AssertDeepEquals(t, qj.ID, factory.JobId)
+	test.AssertDeepEquals(t, qj2.ID, factory.JobId)
 
-	_, err = queued_jobs.Acquire(context.TODO(), qj.Name, 1)
+	_, err = queued_jobs.Acquire(ctx, qj2.Name, 1)
 	test.AssertEquals(t, err, sql.ErrNoRows)
 }
 
