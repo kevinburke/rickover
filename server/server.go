@@ -82,6 +82,10 @@ type Config struct {
 	// Enable this flag if you have long running jobs that could be interfered
 	// with if the dequeuer restarted.
 	DisableMetaShutdown bool
+
+	// In test mode, do some things synchronously that would otherwise be done
+	// in a background goroutine.
+	Test bool
 }
 
 // New initializes the database connection and returns a http.Handler that can
@@ -113,7 +117,7 @@ func Get(c Config) http.Handler {
 	useMetaShutdown := !c.DisableMetaShutdown
 
 	// v1
-	h.Handle(jobsRoute, []string{"POST"}, authHandler(createJob(db, useMetaShutdown), a))
+	h.Handle(jobsRoute, []string{"POST"}, authHandler(createJob(db, c.Test, useMetaShutdown), a))
 	h.Handle(getJobRoute, []string{"GET"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
 	h.Handle(getJobTypeRoute, []string{"GET"}, authHandler(getJobType(getJobTypeRoute, db), a))
 
@@ -123,7 +127,7 @@ func Get(c Config) http.Handler {
 	h.Handle(archivedJobsRoute, []string{"GET"}, authHandler(listArchivedJobs(db), a))
 
 	// v2
-	h.Handle(regexp.MustCompile(`^/v2/(.+)$`), nil, authHandler(V2(db), a))
+	h.Handle(regexp.MustCompile(`^/v2/(.+)$`), nil, authHandler(V2(db, c.Test), a))
 
 	h.Handle(regexp.MustCompile("^/debug/pprof$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Index), a))
 	h.Handle(regexp.MustCompile("^/debug/pprof/cmdline$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Cmdline), a))
@@ -260,7 +264,7 @@ var Logger = handlers.Logger
 //
 // createJob returns a http.HandlerFunc that responds to job creation requests
 // using the given authorizer interface.
-func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
+func createJob(db *newmodels.Queries, test, useMetaShutdown bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
 			rest.BadRequest(w, r, createEmptyErr("name", r.URL.Path))
@@ -349,29 +353,38 @@ func createJob(db *newmodels.Queries, useMetaShutdown bool) http.HandlerFunc {
 			}
 		}
 		if useMetaShutdown {
-			go func() {
-				// The dequeuer won't know about the new job type, so enqueue
-				// a shutdown job, which will instruct the dequeuer to shut down.
-				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-				defer cancel()
-				if err := createMetaShutdownJob(ctx, db); err != nil {
-					return
-				}
-				id := types.GenerateUUID("job_")
-				runAfter := time.Now().Add(-1 * 5 * time.Second)
-				services.Enqueue(ctx, db, newmodels.EnqueueJobParams{
-					ID: id, Name: "meta.shutdown", RunAfter: runAfter,
-					ExpiresAt: types.NullTime{
-						Valid: true,
-						Time:  runAfter.Add(time.Minute),
-					},
-					Data: []byte("{}"),
-				})
-			}()
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			if test {
+				createAndEnqueueMetaShutdown(ctx, db)
+				cancel()
+			} else {
+				go func() {
+					defer cancel()
+					createAndEnqueueMetaShutdown(ctx, db)
+				}()
+			}
 		}
 		created(Logger, w, r, dbtohttp.Job(job))
 		metrics.Increment("type.create.success")
 	}
+}
+
+func createAndEnqueueMetaShutdown(ctx context.Context, db *newmodels.Queries) {
+	// The dequeuer won't know about the new job type, so enqueue
+	// a shutdown job, which will instruct the dequeuer to shut down.
+	if err := createMetaShutdownJob(ctx, db); err != nil {
+		return
+	}
+	id := types.GenerateUUID("job_")
+	runAfter := time.Now().Add(-1 * 5 * time.Second)
+	services.Enqueue(ctx, db, newmodels.EnqueueJobParams{
+		ID: id, Name: "meta.shutdown", RunAfter: runAfter,
+		ExpiresAt: types.NullTime{
+			Valid: true,
+			Time:  runAfter.Add(time.Minute),
+		},
+		Data: []byte("{}"),
+	})
 }
 
 // Deprecated: use httptypes.EnqueueJobRequest instead.
