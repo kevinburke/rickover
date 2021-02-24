@@ -32,8 +32,13 @@ jobs:
       run: envdir envs/github make migrate-ci
       working-directory: ./src/github.com/kevinburke/rickover
 
+    - name: Lint
+      run: envdir envs/github make lint
+      working-directory: ./src/github.com/kevinburke/rickover
+
     - name: Test rickover
-      run: envdir envs/github go test -count=1 -p=1 -timeout=10s ./...
+      # github env has correct database URL
+      run: envdir envs/github go test -p=1 -race -timeout 10s ./...
       working-directory: ./src/github.com/kevinburke/rickover
 
     - name: Run benchmarks

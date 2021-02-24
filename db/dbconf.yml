@@ -6,14 +6,9 @@ test:
     driver: postgres
     open: user=rickover password=rickover dbname=rickover_test sslmode=disable
 
-circle:
+github:
     driver: postgres
-    open: user=ubuntu dbname=circle_test sslmode=disable
-
-travis:
-    driver: postgres
-    # todo figure out how to load from PGPORT, run Postgres 10
-    open: user=rickover dbname=rickover_test sslmode=disable
+    open: user=rickover password=hunter2 dbname=rickover_test sslmode=disable
 
 cluster:
     driver: postgres

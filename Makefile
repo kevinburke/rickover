@@ -80,7 +80,7 @@ migrate-ci:
 	sudo -u postgres psql -f ./bin/migrate
 	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
 	go get github.com/kevinburke/goose/cmd/goose
-	goose --env=test up
+	goose --env=github up
 
 $(BENCHSTAT):
 	go get -u golang.org/x/perf/cmd/benchstat

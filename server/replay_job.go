@@ -13,6 +13,7 @@ import (
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
+	"github.com/kevinburke/rickover/services"
 )
 
 // POST /v1/jobs(/:name)/:id/replay
@@ -29,9 +30,11 @@ func replayHandler() http.Handler {
 			return
 		}
 
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
 		var jobName string
 		var data json.RawMessage
-		qj, err := queued_jobs.GetRetry(context.TODO(), id, 3)
+		qj, err := queued_jobs.GetRetry(ctx, id, 3)
 		var expiresAt types.NullTime
 		if err == nil {
 			if qj.Status == newmodels.JobStatusQueued {
@@ -78,9 +81,12 @@ func replayHandler() http.Handler {
 		}
 
 		newId := types.GenerateUUID("job_")
-		queuedJob, err := queued_jobs.Enqueue(newmodels.EnqueueJobParams{
-			ID: newId, Name: jobName, RunAfter: time.Now(), ExpiresAt: expiresAt, Data: data,
-		})
+		params := newmodels.EnqueueJobParams{
+			ID: newId, Name: jobName, RunAfter: time.Now(),
+			ExpiresAt: expiresAt, Data: data,
+		}
+		queuedJob, err := services.Enqueue(ctx, newmodels.DB,
+			params)
 		if err != nil {
 			rest.ServerError(w, r, err)
 			return
