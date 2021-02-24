@@ -125,7 +125,7 @@ func TestRetrieveJob(t *testing.T) {
 	defer test.TearDown(t)
 	factory.CreateQueuedJob(t, factory.EmptyData)
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", nil)
+	req := httptest.NewRequest("GET", "/v1/jobs/echo/job_6740b44e-13b9-475d-af06-979627e0e0d6", nil)
 	req.SetBasicAuth("foo", "bar")
 	server.Get(u).ServeHTTP(w, req)
 	test.AssertEquals(t, w.Code, http.StatusOK)

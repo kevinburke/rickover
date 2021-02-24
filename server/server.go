@@ -106,31 +106,31 @@ func Get(c Config) http.Handler {
 	if a == nil {
 		panic("server: cannot call Get() with nil Authorizer")
 	}
-	h := new(RegexpHandler)
+	h := new(handlers.Regexp)
 
 	db := newmodels.DB
 	useMetaShutdown := !c.DisableMetaShutdown
 
 	// v1
-	h.Handler(jobsRoute, []string{"POST"}, authHandler(createJob(db, useMetaShutdown), a))
-	h.Handler(getJobRoute, []string{"GET"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
-	h.Handler(getJobTypeRoute, []string{"GET"}, authHandler(getJobType(db), a))
+	h.Handle(jobsRoute, []string{"POST"}, authHandler(createJob(db, useMetaShutdown), a))
+	h.Handle(getJobRoute, []string{"GET"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
+	h.Handle(getJobTypeRoute, []string{"GET"}, authHandler(getJobType(getJobTypeRoute, db), a))
 
-	h.Handler(replayRoute, []string{"POST"}, authHandler(replayHandler(), a))
+	h.Handle(replayRoute, []string{"POST"}, authHandler(replayHandler(), a))
 
-	h.Handler(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
-	h.Handler(archivedJobsRoute, []string{"GET"}, authHandler(listArchivedJobs(db), a))
+	h.Handle(jobIdRoute, []string{"GET", "POST", "PUT"}, authHandler(handleJobRoute(db, useMetaShutdown), a))
+	h.Handle(archivedJobsRoute, []string{"GET"}, authHandler(listArchivedJobs(db), a))
 
 	// v2
-	h.Handler(regexp.MustCompile(`^/v2/(.+)$`), nil, authHandler(V2(db), a))
+	h.Handle(regexp.MustCompile(`^/v2/(.+)$`), nil, authHandler(V2(db), a))
 
-	h.Handler(regexp.MustCompile("^/debug/pprof$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Index), a))
-	h.Handler(regexp.MustCompile("^/debug/pprof/cmdline$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Cmdline), a))
-	h.Handler(regexp.MustCompile("^/debug/pprof/profile$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Profile), a))
-	h.Handler(regexp.MustCompile("^/debug/pprof/symbol$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Symbol), a))
-	h.Handler(regexp.MustCompile("^/debug/pprof/trace$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Trace), a))
+	h.Handle(regexp.MustCompile("^/debug/pprof$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Index), a))
+	h.Handle(regexp.MustCompile("^/debug/pprof/cmdline$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Cmdline), a))
+	h.Handle(regexp.MustCompile("^/debug/pprof/profile$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Profile), a))
+	h.Handle(regexp.MustCompile("^/debug/pprof/symbol$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Symbol), a))
+	h.Handle(regexp.MustCompile("^/debug/pprof/trace$"), []string{"GET"}, authHandler(http.HandlerFunc(pprof.Trace), a))
 
-	h.Handler(regexp.MustCompile("^/$"), []string{"GET"}, authHandler(http.HandlerFunc(renderHomepage), a))
+	h.Handle(regexp.MustCompile("^/$"), []string{"GET"}, authHandler(http.HandlerFunc(renderHomepage), a))
 
 	mux := forbidNonTLSTrafficHandler(h)
 	mux = serverHeaderHandler(mux)
@@ -243,9 +243,9 @@ type CreateJobRequest struct {
 // GET /v1/jobs/:jobName
 //
 // Get a job type by name. Returns a models.Job or an error
-func getJobType(db *newmodels.Queries) http.HandlerFunc {
+func getJobType(rx *regexp.Regexp, db *newmodels.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		jobName := getJobTypeRoute.FindStringSubmatch(r.URL.Path)[1]
+		jobName := rx.FindStringSubmatch(r.URL.Path)[1]
 		job, err := db.GetJob(r.Context(), jobName)
 		if err != nil {
 			if err == sql.ErrNoRows {

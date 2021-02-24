@@ -12,7 +12,6 @@ import (
 	"github.com/kevinburke/go-types"
 	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/models/archived_jobs"
-	"github.com/kevinburke/rickover/models/jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
 	"github.com/kevinburke/rickover/services"
@@ -64,9 +63,15 @@ func RandomId(prefix string) types.PrefixUUID {
 
 func CreateJob(t testing.TB, j newmodels.CreateJobParams) newmodels.Job {
 	test.SetUp(t)
-	job, err := jobs.Create(j)
+	if j.DeliveryStrategy == "" {
+		j.DeliveryStrategy = newmodels.DeliveryStrategyAtLeastOnce
+	}
+	if j.Attempts == 0 {
+		j.Attempts = 11
+	}
+	job, err := newmodels.DB.CreateJob(context.Background(), j)
 	test.AssertNotError(t, err, "")
-	return *job
+	return job
 }
 
 // CreateQueuedJob creates a job and a queued job with the given JSON data, and
@@ -104,7 +109,7 @@ func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	t.Helper()
 	test.SetUp(t)
 	jobname := RandomId("jobtype")
-	job, err := jobs.Create(newmodels.CreateJobParams{
+	job, err := newmodels.DB.CreateJob(context.Background(), newmodels.CreateJobParams{
 		Name:             jobname.String(),
 		Attempts:         11,
 		Concurrency:      3,
@@ -146,7 +151,7 @@ func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *n
 
 func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
 	test.SetUp(t)
-	job, err := jobs.Create(newmodels.CreateJobParams{
+	job, err := newmodels.DB.CreateJob(context.Background(), newmodels.CreateJobParams{
 		Name:             j.Name,
 		DeliveryStrategy: j.DeliveryStrategy,
 		Attempts:         j.Attempts,
@@ -177,7 +182,7 @@ func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.
 		Data: data,
 	})
 	test.AssertNotError(t, err, fmt.Sprintf("Error creating queued job %s (job name %s)", id, j.Name))
-	return job, &qj
+	return &job, &qj
 }
 
 // Processor returns a simple JobProcessor, with a client pointing at the given

@@ -4,15 +4,20 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/kevinburke/handlers"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rickover/dbtohttp"
 	"github.com/kevinburke/rickover/newmodels"
 )
 
 func V2(db *newmodels.Queries) http.Handler {
-	h := new(RegexpHandler)
+	h := new(handlers.Regexp)
 	// auth is handled external to this function
-	h.Handler(regexp.MustCompile(`^/v2/job-types$`), []string{"GET"}, v2GetJobTypes(db))
+	h.Handle(regexp.MustCompile(`^/v2/job-types$`), []string{"GET"}, v2GetJobTypes(db))
+	jobTypeInstanceRx := regexp.MustCompile(`^/v2/job-types/(?P<JobName>[^/]+)$`)
+	h.Handle(jobTypeInstanceRx, []string{"GET"}, getJobType(jobTypeInstanceRx, db))
+	// v2 API uses the meta shutdown job
+	h.Handle(regexp.MustCompile(`^/v2/job-types$`), []string{"POST"}, createJob(db, true))
 	return h
 }
 
