@@ -10,15 +10,6 @@ import (
 	"github.com/kevinburke/rest/resterror"
 )
 
-func new405(r *http.Request) *resterror.Error {
-	return &resterror.Error{
-		Title:    "Method not allowed",
-		ID:       "method_not_allowed",
-		Instance: r.URL.Path,
-		Status:   405,
-	}
-}
-
 func new404(r *http.Request) *resterror.Error {
 	return &resterror.Error{
 		Title:    "Resource not found",
