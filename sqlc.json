@@ -19,7 +19,7 @@
       {
           "go_type": "github.com/kevinburke/go-types.NullTime",
           "db_type": "pg_catalog.timestamptz",
-          "null": true
+          "nullable": true
       }
     ]
 }

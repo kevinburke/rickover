@@ -56,7 +56,9 @@ func (q *Queries) DeleteAllJobs(ctx context.Context) (int64, error) {
 }
 
 const getAllJobs = `-- name: GetAllJobs :many
-SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id FROM jobs WHERE name != 'meta.shutdown'
+SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id FROM jobs
+WHERE name != 'meta.shutdown'
+ORDER BY auto_id DESC
 `
 
 func (q *Queries) GetAllJobs(ctx context.Context) ([]Job, error) {
@@ -90,8 +92,7 @@ func (q *Queries) GetAllJobs(ctx context.Context) ([]Job, error) {
 }
 
 const getJob = `-- name: GetJob :one
-SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id
-FROM jobs
+SELECT name, delivery_strategy, attempts, concurrency, created_at, auto_id FROM jobs
 WHERE name = $1
 `
 
