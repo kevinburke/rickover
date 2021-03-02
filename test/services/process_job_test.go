@@ -166,7 +166,7 @@ func TestWorkerWaitsRequestTimeout(t *testing.T) {
 	workErr := jp.DoWork(ctx, qj)
 	test.AssertNotError(t, workErr, "")
 	wg.Wait()
-	aj, err := archived_jobs.Get(qj.ID)
+	aj, err := archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusSucceeded)
 }
@@ -185,7 +185,7 @@ func TestWorkerDoesNotWaitConnectionFailure(t *testing.T) {
 	_, qj := factory.CreateAtMostOnceJob(t, factory.EmptyData)
 	err := jp.DoWork(context.Background(), qj)
 	test.AssertNotError(t, err, "")
-	aj, err := archived_jobs.Get(qj.ID)
+	aj, err := archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusFailed)
 }

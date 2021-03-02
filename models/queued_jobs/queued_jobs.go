@@ -1,4 +1,5 @@
-// Logic for interacting with the "queued_jobs" table.
+// Package queued_jobs contains logic for interacting with the "queued_jobs"
+// table.
 package queued_jobs
 
 import (
@@ -96,10 +97,14 @@ func GetAttempts(ctx context.Context, id types.PrefixUUID) (int16, error) {
 func GetRetry(ctx context.Context, id types.PrefixUUID, attempts int) (job *newmodels.QueuedJob, err error) {
 	for i := 0; i < attempts; i++ {
 		job, err = Get(ctx, id)
-		if err == nil || err == ErrNotFound || err == context.Canceled || err == context.DeadlineExceeded {
+		if err == nil || err == ErrNotFound || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+		select {
+		case <-time.After(50 * time.Millisecond):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 	return
 }
@@ -118,10 +123,10 @@ func Delete(ctx context.Context, id types.PrefixUUID) error {
 }
 
 // DeleteRetry attempts to Delete the item `attempts` times.
-func DeleteRetry(ctx context.Context, id types.PrefixUUID, attempts uint8) error {
-	for i := uint8(0); i < attempts; i++ {
+func DeleteRetry(ctx context.Context, id types.PrefixUUID, attempts int) error {
+	for i := 0; i < attempts; i++ {
 		err := Delete(ctx, id)
-		if err == nil || err == ErrNotFound || err == context.Canceled || err == context.DeadlineExceeded {
+		if err == nil || err == ErrNotFound || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return err
 		}
 	}

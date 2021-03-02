@@ -378,7 +378,9 @@ func (d *Dequeuer) Work(name string, wg *sync.WaitGroup) {
 
 		case <-time.After(waitDuration):
 			start := time.Now()
-			qj, err := queued_jobs.Acquire(context.TODO(), name, d.ID)
+			actx, cancel := context.WithTimeout(d.ctx, time.Minute+time.Second)
+			qj, err := queued_jobs.Acquire(actx, name, d.ID)
+			cancel()
 			metrics.Time("acquire.latency", time.Since(start))
 			if err == nil {
 				failedAcquireCount = 0

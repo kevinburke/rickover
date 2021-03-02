@@ -50,7 +50,9 @@ func replayHandler() http.Handler {
 			data = qj.Data
 			expiresAt = qj.ExpiresAt
 		} else if err == queued_jobs.ErrNotFound {
-			aj, err := archived_jobs.GetRetry(id, 3)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			aj, err := archived_jobs.GetRetry(ctx, id, 3)
+			cancel()
 			if err == nil {
 				jobName = aj.Name
 				data = aj.Data

@@ -461,7 +461,7 @@ func (j *jobStatusGetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	aj, err := archived_jobs.GetRetry(id, 3)
+	aj, err := archived_jobs.GetRetry(r.Context(), id, 3)
 	if err == archived_jobs.ErrNotFound {
 		notFound(w, new404(r))
 		metrics.Increment("job.get.not_found")

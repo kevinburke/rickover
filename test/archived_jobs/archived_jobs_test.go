@@ -80,7 +80,7 @@ func testCreateJobStoresJob(t *testing.T) {
 	ctx := context.Background()
 	aj, err := archived_jobs.Create(ctx, qj.ID, job.Name, newmodels.ArchivedJobStatusSucceeded, 7)
 	test.AssertNotError(t, err, "")
-	aj, err = archived_jobs.Get(aj.ID)
+	aj, err = archived_jobs.Get(ctx, aj.ID)
 	test.AssertNotError(t, err, "")
 
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())

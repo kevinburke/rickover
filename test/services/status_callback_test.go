@@ -19,7 +19,7 @@ func TestStatusCallbackInsertsArchivedRecordDeletesQueuedRecord(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
-	aj, err := archived_jobs.Get(qj.ID)
+	aj, err := archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
 	test.AssertEquals(t, aj.Attempts, int16(7))
@@ -34,7 +34,7 @@ func testStatusCallbackFailedInsertsArchivedRecord(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
-	aj, err := archived_jobs.Get(qj.ID)
+	aj, err := archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
 }
@@ -46,7 +46,7 @@ func TestStatusCallbackFailedAtMostOnceInsertsArchivedRecord(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	_, err = queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
-	aj, err := archived_jobs.Get(qj.ID)
+	aj, err := archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, aj.ID.String(), qj.ID.String())
 }
@@ -61,7 +61,7 @@ func testStatusCallbackFailedAtLeastOnceUpdatesQueuedRecord(t *testing.T) {
 	test.AssertNotError(t, err, "")
 	test.AssertEquals(t, qj.Attempts, int16(6))
 
-	_, err = archived_jobs.Get(qj.ID)
+	_, err = archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertEquals(t, err, archived_jobs.ErrNotFound)
 }
 
@@ -73,7 +73,7 @@ func testStatusCallbackFailedNotRetryableArchivesRecord(t *testing.T) {
 
 	_, err = queued_jobs.Get(context.Background(), qj.ID)
 	test.AssertEquals(t, err, queued_jobs.ErrNotFound)
-	aj, err := archived_jobs.Get(qj.ID)
+	aj, err := archived_jobs.Get(context.Background(), qj.ID)
 	test.AssertNotError(t, err, "finding archived job")
 	test.AssertEquals(t, aj.Status, newmodels.ArchivedJobStatusFailed)
 	test.AssertEquals(t, aj.Attempts, qj.Attempts-1)

@@ -18,7 +18,9 @@ func ArchiveStuckJobs(ctx context.Context, logger log.Logger, olderThan time.Dur
 	} else {
 		olderThanTime = time.Now().Add(olderThan)
 	}
-	jobs, err := queued_jobs.GetOldInProgressJobs(ctx, olderThanTime)
+	getCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	jobs, err := queued_jobs.GetOldInProgressJobs(getCtx, olderThanTime)
+	cancel()
 	if err != nil {
 		return err
 	}

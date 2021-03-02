@@ -7,6 +7,12 @@
   packages to avoid importing all of Rickover just to get the HTTP request
   types.
 
+- `archived_jobs.Get` and `archived_jobs.GetRetry` both accept
+  a context.Context.
+
+- Various `*Retry` functions accept an `int` instead of a `uint8` for
+  convenience.
+
 ## Version 1.3
 
 This is a checkpoint release before making more breaking changes; there may be

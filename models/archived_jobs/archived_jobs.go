@@ -39,8 +39,8 @@ func Create(ctx context.Context, id types.PrefixUUID, name string, status newmod
 
 // Get returns the archived job with the given id, or sql.ErrNoRows if it's
 // not present.
-func Get(id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
-	aj, err := newmodels.DB.GetArchivedJob(context.Background(), id)
+func Get(ctx context.Context, id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
+	aj, err := newmodels.DB.GetArchivedJob(ctx, id)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -51,14 +51,24 @@ func Get(id types.PrefixUUID) (*newmodels.ArchivedJob, error) {
 	return &aj, nil
 }
 
-// GetRetry attempts to retrieve the job attempts times before giving up.
-func GetRetry(id types.PrefixUUID, attempts uint8) (job *newmodels.ArchivedJob, err error) {
-	for i := uint8(0); i < attempts; i++ {
-		job, err = Get(id)
-		if err == nil || err == ErrNotFound {
-			break
+// GetRetry attempts to retrieve the job attempts times before giving up,
+// sleeping 50 milliseconds between each attempt.
+func GetRetry(ctx context.Context, id types.PrefixUUID, attempts int) (*newmodels.ArchivedJob, error) {
+	var err error
+	for i := 0; i < attempts; i++ {
+		var job *newmodels.ArchivedJob
+		job, err = Get(ctx, id)
+		if err == nil {
+			return job, nil
 		}
-		time.Sleep(50 * time.Millisecond)
+		if err == ErrNotFound || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return nil, err
+		}
+		select {
+		case <-time.After(50 * time.Millisecond):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
-	return
+	return nil, err
 }
