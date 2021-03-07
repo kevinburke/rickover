@@ -117,10 +117,23 @@ func DB(ctx context.Context, connector db.Connector, dbConns int) error {
 	}
 	conn, err := dbConnector.Connect(dbConns)
 	if err != nil {
+		fmt.Printf("connect err: %#v\n", err)
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
 	db.Conn = conn
-	if err := db.Conn.PingContext(ctx); err != nil {
+	for i := 0; i < 3; i++ {
+		err := db.Conn.PingContext(ctx)
+		if err == nil {
+			break
+		}
+		if db.IsRetryable(err) && i < 3 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+			}
+			continue
+		}
 		return errors.New("setup: could not establish a database connection: " + err.Error())
 	}
 	return PrepareAll(ctx)

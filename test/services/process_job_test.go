@@ -28,6 +28,7 @@ func TestAll(t *testing.T) {
 		t.Run("StatusCallbackFailedNotRetryableArchivesRecord", testStatusCallbackFailedNotRetryableArchivesRecord)
 		t.Run("StatusCallbackFailedAtLeastOnceUpdatesQueuedRecord", testStatusCallbackFailedAtLeastOnceUpdatesQueuedRecord)
 		t.Run("TestStatusCallbackFailedInsertsArchivedRecord", testStatusCallbackFailedInsertsArchivedRecord)
+		t.Run("Enqueue", testEnqueue)
 	})
 }
 

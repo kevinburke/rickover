@@ -120,7 +120,7 @@ func testEnqueueUnknownJobTypeErrNoRows(t *testing.T) {
 	_, err := services.Enqueue(context.Background(), newmodels.DB,
 		newParams(factory.JobId, "unknownJob", runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
-	test.AssertEquals(t, err.Error(), "Job type unknownJob does not exist or the job with that id has already been archived")
+	test.AssertEquals(t, err.Error(), `Job type "unknownJob" does not exist or the job with that id has already been archived`)
 }
 
 func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
@@ -135,7 +135,7 @@ func testEnqueueWithExistingArchivedJobFails(t *testing.T) {
 	_, err = services.Enqueue(context.Background(), newmodels.DB,
 		newParams(qj.ID, qj.Name, runAfter, expiresAt, empty))
 	test.AssertError(t, err, "")
-	test.AssertEquals(t, err.Error(), "Job type "+qj.Name+" does not exist or the job with that id has already been archived")
+	test.AssertEquals(t, err.Error(), `Job type "`+qj.Name+`" does not exist or the job with that id has already been archived`)
 }
 
 func testNonexistentReturnsErrNoRows(t *testing.T) {
