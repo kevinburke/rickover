@@ -14,7 +14,6 @@ import (
 	"github.com/kevinburke/rickover/dequeuer"
 	"github.com/kevinburke/rickover/metrics"
 	"github.com/kevinburke/rickover/services"
-	"golang.org/x/sys/unix"
 )
 
 func checkError(err error) {
@@ -28,9 +27,9 @@ func main() {
 	logger := handlers.Logger
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		sigterm := make(chan os.Signal, 1)
-		signal.Notify(sigterm, unix.SIGINT, unix.SIGTERM)
-		sig := <-sigterm
+		sigch := make(chan os.Signal, 1)
+		signal.Notify(sigch, sigint, sigterm)
+		sig := <-sigch
 		fmt.Printf("Caught signal %v, shutting down...\n", sig)
 		cancel()
 	}()

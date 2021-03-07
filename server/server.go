@@ -597,17 +597,23 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				break
 			}
+			if terr.Code == "57P03" { // "the database is shutting down"
+				rest.ServerError(w, r, err)
+				return
+			}
 			apierr := &resterror.Error{
+				// TODO: evaluate all the types of errors that can be returned
+				// here, and expose only appropriate ones.
 				Title:    terr.Message,
 				ID:       "invalid_parameter",
 				Instance: r.URL.Path,
 			}
 			rest.BadRequest(w, r, apierr)
-			metrics.Increment(fmt.Sprintf("enqueue.%s.failure", name))
+			metrics.Increment("enqueue." + name + ".failure")
 			return
 		default:
 			rest.ServerError(w, r, err)
-			metrics.Increment(fmt.Sprintf("enqueue.%s.error", name))
+			metrics.Increment("enqueue." + name + ".error")
 			return
 		}
 	}

@@ -4,6 +4,7 @@ package db
 import (
 	"database/sql"
 	"errors"
+	"net"
 	"os"
 	"sync"
 )
@@ -60,4 +61,16 @@ func Connected() bool {
 	mu.Lock()
 	defer mu.Unlock()
 	return Conn != nil
+}
+
+func IsRetryable(err error) bool {
+	oerr, ok := err.(*net.OpError)
+	if !ok {
+		return false
+	}
+	oserr, ok := oerr.Err.(*os.SyscallError)
+	if !ok {
+		return false
+	}
+	return oserr.Err == econnrefused
 }

@@ -137,9 +137,12 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f7409593222992887ce91e3a437f3001557af55100a4447e74f72aa904fcbb5d"
+  digest = "1:08342ba9a0ce9c6ed47e0633a03a936d947a1e622099b0369ab033746e52684a"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "unix",
+    "windows",
+  ]
   pruneopts = "UT"
   revision = "593003d681fa6bf81a6affb4ef4129684af97f9c"
 
@@ -159,6 +162,7 @@
     "github.com/lib/pq",
     "golang.org/x/sync/errgroup",
     "golang.org/x/sys/unix",
+    "golang.org/x/sys/windows",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
