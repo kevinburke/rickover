@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -22,7 +23,7 @@ func ArchiveStuckJobs(ctx context.Context, logger log.Logger, olderThan time.Dur
 	jobs, err := queued_jobs.GetOldInProgressJobs(getCtx, olderThanTime)
 	cancel()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not retrieve in progress jobs: %w", err)
 	}
 	for _, qj := range jobs {
 		// bad to cancel this halfway through, give it time to run regardless fo
