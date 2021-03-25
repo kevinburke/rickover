@@ -107,7 +107,6 @@ func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) {
 // CreateQJ creates a job with a random name, and a random UUID.
 func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	t.Helper()
-	test.SetUp(t)
 	jobname := RandomId("jobtype")
 	job, err := newmodels.DB.CreateJob(context.Background(), newmodels.CreateJobParams{
 		Name:             jobname.String(),

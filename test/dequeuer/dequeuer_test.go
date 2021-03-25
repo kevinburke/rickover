@@ -21,7 +21,7 @@ import (
 
 func TestAll(t *testing.T) {
 	test.SetUp(t)
-	defer test.TearDown(t)
+	t.Cleanup(func() { test.TearDown(t) })
 	t.Run("Parallel", func(t *testing.T) {
 		t.Run("TestWorkerShutsDown", testWorkerShutsDown)
 		t.Run("TestWorkerShutsDownWithContext", testWorkerShutsDownWithContext)
@@ -89,7 +89,6 @@ func testWorkerShutsDownWithContext(t *testing.T) {
 // 3. Create a test server that replies with a 202
 // 4. Ensure that the correct request is made to the server
 func testWorkerMakesCorrectRequest(t *testing.T) {
-	t.Parallel()
 	qj := factory.CreateQJ(t)
 
 	c1 := make(chan bool, 1)
@@ -138,7 +137,6 @@ func testWorkerMakesCorrectRequest(t *testing.T) {
 // 3. Create a test server that replies with a 202
 // 4. Ensure that only one request is made to the server
 func testWorkerMakesExactlyOneRequest(t *testing.T) {
-	t.Parallel()
 	qj := factory.CreateQJ(t)
 
 	c1 := int32(0)
@@ -157,12 +155,10 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 	}
 	defer cancel()
 	<-time.After(100 * time.Millisecond)
-	test.AssertEquals(t, c1, int32(1))
+	test.Assert(t, atomic.LoadInt32(&c1) == int32(1), "request called once")
 }
 
 func TestCreatePools(t *testing.T) {
-	test.SetUp(t)
-	defer test.TearDown(t)
 	qj := factory.CreateQJ(t)
 	factory.CreateQJ(t)
 	proc := factory.Processor("http://example.com")
