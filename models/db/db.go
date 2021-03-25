@@ -31,7 +31,9 @@ func (dc *DatabaseURLConnector) Connect(dbConns int) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	conn.SetMaxOpenConns(dbConns)
+	if dbConns != 0 {
+		conn.SetMaxOpenConns(dbConns)
+	}
 	if dbConns > 100 {
 		conn.SetMaxIdleConns(dbConns - 20)
 	} else if dbConns > 50 {
