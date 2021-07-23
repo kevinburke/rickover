@@ -1,17 +1,19 @@
 SHELL = /bin/bash -o pipefail
 
 BUMP_VERSION := $(GOPATH)/bin/bump_version
-STATICCHECK := $(GOPATH)/bin/staticcheck
 
-vet: | $(STATICCHECK)
+vet:
 	go vet ./...
-	$(STATICCHECK) ./...
-
-$(STATICCHECK):
-	go get honnef.co/go/tools/cmd/staticcheck
+	staticcheck ./...
 
 test: vet
 	go test -timeout=10s ./...
+
+install-ci:
+	go get honnef.co/go/tools/cmd/staticcheck
+	go get -t ./...
+
+ci: install-ci vet race-test
 
 race-test: vet
 	go test -race -timeout=10s ./...

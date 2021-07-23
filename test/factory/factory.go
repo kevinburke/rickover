@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofrs/uuid"
 	log "github.com/inconshreveable/log15"
 	"github.com/kevinburke/go-types"
-	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rickover/models/archived_jobs"
 	"github.com/kevinburke/rickover/models/queued_jobs"
 	"github.com/kevinburke/rickover/newmodels"
@@ -54,7 +54,7 @@ var SampleAtMostOnceJob = newmodels.CreateJobParams{
 
 // RandomId returns a random UUID with the given prefix.
 func RandomId(prefix string) types.PrefixUUID {
-	id := uuid.NewV4()
+	id, _ := uuid.NewV4()
 	return types.PrefixUUID{
 		UUID:   id,
 		Prefix: prefix,

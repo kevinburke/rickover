@@ -10,6 +10,14 @@
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:b4c37f161f9abc89aede53a621205cda38d2df6659dff7b8044d8295ed24291f"
+  name = "github.com/gofrs/uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "4b36aa0ea796d49630bbae624f8f05ab7013af77"
+  version = "v4.0.0"
+
+[[projects]]
   digest = "1:dacb152d24b21683403e82e4e397e973cdc218befff03b0eba8f7fbffcef325c"
   name = "github.com/inconshreveable/log15"
   packages = ["."]
@@ -34,28 +42,20 @@
   version = "1.0"
 
 [[projects]]
-  digest = "1:1343b30ebb41b6b9241b2c7af554ee49afaa45c726bdd3e0a15eb574273950a7"
+  digest = "1:413b8a48a1cb840a1cc144a1f9935f193e362608cd8f9464b6ebfd7d5ca68a0d"
   name = "github.com/kevinburke/go-types"
   packages = ["."]
   pruneopts = "UT"
-  revision = "f2d4aea18a7a1f5e91b1e7afaaa2459213dff6f5"
-  version = "1.0"
-
-[[projects]]
-  digest = "1:c34274a85e6b86a0bedded8671647fbf9b84a73411e5b04beaf75ff34596b117"
-  name = "github.com/kevinburke/go.uuid"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "24443c65ec63d9e040fd4cedf0f1048b5d3544f7"
-  version = "v1.2.0"
+  revision = "2deba1f80ba7b6516678685e855be6f58fb55c17"
+  version = "1.2"
 
 [[projects]]
   branch = "master"
-  digest = "1:caded5ce2e0d8a8e4168ff449909560f68f254a27fb5e951ea62194895f02d06"
+  digest = "1:97812d153dcafdafa93cffc6e660a2a23b452ffe5375ae264a1246be5ea26bba"
   name = "github.com/kevinburke/handlers"
   packages = ["."]
   pruneopts = "UT"
-  revision = "18b309ca38bfb359c1275c1305f71f5562229ebb"
+  revision = "b0ea10088d2c8da840b98f2fd4559a5ded27a3dc"
 
 [[projects]]
   digest = "1:e084bc0e1be6168bcd420b4e078eab09338e24a810dcf7e0412c98db8f9b1778"
@@ -147,10 +147,10 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/gofrs/uuid",
     "github.com/inconshreveable/log15",
     "github.com/kevinburke/go-simple-metrics",
     "github.com/kevinburke/go-types",
-    "github.com/kevinburke/go.uuid",
     "github.com/kevinburke/handlers",
     "github.com/kevinburke/rest",
     "github.com/kevinburke/rest/restclient",

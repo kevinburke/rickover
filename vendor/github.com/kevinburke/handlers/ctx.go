@@ -6,21 +6,22 @@ import (
 	"strings"
 	"time"
 
-	uuid "github.com/kevinburke/go.uuid"
+	"github.com/gofrs/uuid"
 )
 
 type ctxVar int
 
 var requestID ctxVar = 0
 var startTime ctxVar = 1
+var extraLog ctxVar = 2
 
 // SetRequestID sets the given UUID on the request context and returns the
 // modified HTTP request.
 func SetRequestID(r *http.Request, u uuid.UUID) *http.Request {
-	r2 := new(http.Request)
-	*r2 = *r
+	ctx := context.WithValue(r.Context(), requestID, u)
+	r2 := r.Clone(ctx)
 	r2.Header.Set("X-Request-Id", u.String())
-	return r2.WithContext(context.WithValue(r2.Context(), requestID, u))
+	return r2
 }
 
 // GetRequestID returns a UUID (if it exists in the context) or false if none
@@ -114,9 +115,7 @@ func Duration(h http.Handler) http.Handler {
 			start:       time.Now().UTC(),
 			wroteHeader: false,
 		}
-		r2 := new(http.Request)
-		*r2 = *r
-		r2 = r2.WithContext(context.WithValue(r2.Context(), startTime, sw.start))
+		r2 := r.WithContext(context.WithValue(r.Context(), startTime, sw.start))
 		h.ServeHTTP(sw, r2)
 		//lint:ignore S1002 prefer it this way
 		if sw.wroteHeader == false {
@@ -136,9 +135,6 @@ func WithTimeout(h http.Handler, timeout time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
-		r2 := new(http.Request)
-		*r2 = *r
-		r2 = r2.WithContext(ctx)
-		h.ServeHTTP(w, r2)
+		h.ServeHTTP(w, r.Clone(ctx))
 	})
 }

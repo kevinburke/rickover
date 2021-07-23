@@ -12,6 +12,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"fmt"
 	"io"
@@ -22,15 +23,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	uuid "github.com/gofrs/uuid"
 	log "github.com/inconshreveable/log15"
-	uuid "github.com/kevinburke/go.uuid"
 	"github.com/kevinburke/rest"
 	"github.com/kevinburke/rest/resterror"
 )
 
-const Version = "0.39"
+const Version = "0.41"
 
 func push(w http.ResponseWriter, target string, opts *http.PushOptions) error {
 	if pusher, ok := w.(http.Pusher); ok {
@@ -120,7 +122,8 @@ func UUID(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rid := r.Header.Get("X-Request-Id")
 		if rid == "" {
-			r = SetRequestID(r, uuid.NewV4())
+			id, _ := uuid.NewV4()
+			r = SetRequestID(r, id)
 		}
 		h.ServeHTTP(w, r)
 	})
@@ -288,6 +291,7 @@ func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	t := time.Now()
 	logWriter := makeLogger(w)
 	u := *r.URL
+	r = r.WithContext(context.WithValue(r.Context(), extraLog, &logHolder{}))
 	l.h.ServeHTTP(logWriter, r)
 	writeLog(l.l, r, u, t, logWriter.Status(), logWriter.Size())
 }
@@ -325,7 +329,37 @@ func writeLog(l log.Logger, r *http.Request, u url.URL, t time.Time, status int,
 	if id := r.Header.Get("X-Request-Id"); id != "" {
 		args = append(args, "request_id", id)
 	}
+	holder := r.Context().Value(extraLog).(*logHolder)
+	args = append(args, holder.logs...)
 	l.Info("", args...)
+}
+
+type logHolder struct {
+	mu   sync.Mutex
+	logs []interface{}
+}
+
+// Append will append the logctx arguments to the log line for this request.
+// The logctx arguments should come in pairs and match those provided to a
+// log15.Logger.
+func AppendLog(r *http.Request, logctx ...interface{}) {
+	val := r.Context().Value(extraLog)
+	if val == nil {
+		// This should always be set by logHandler.ServeHTTP; if it's not set,
+		// it means you're trying to append to something that was not wrapped
+		// with Log or WithLogger().
+		//
+		// In practice, it's not uncommon in places like tests or sub-routers to
+		// not have this value set, so silently ignore it for now.
+		return
+	}
+	holder := val.(*logHolder)
+	holder.mu.Lock()
+	defer holder.mu.Unlock()
+	if holder.logs == nil {
+		holder.logs = make([]interface{}, 0)
+	}
+	holder.logs = append(holder.logs, logctx...)
 }
 
 // Log serves the http request and writes information about the

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	uuid "github.com/kevinburke/go.uuid"
+	uuid "github.com/gofrs/uuid"
 )
 
 // A PrefixUUID stores an additional prefix as part of a UUID type.
@@ -21,7 +21,11 @@ func (u PrefixUUID) String() string {
 
 // GenerateUUID generates a UUID with the given prefix.
 func GenerateUUID(prefix string) PrefixUUID {
-	uid := uuid.NewV4()
+	uid, err := uuid.NewV4()
+	if err != nil {
+		// you have bigger problems if you can't read from random
+		panic(err)
+	}
 	id := PrefixUUID{
 		Prefix: prefix,
 		UUID:   uid,
