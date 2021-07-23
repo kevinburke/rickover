@@ -125,7 +125,7 @@ func Test400InvalidUUID(t *testing.T) {
 	var e resterror.Error
 	err := json.Unmarshal(w.Body.Bytes(), &e)
 	test.AssertNotError(t, err, "")
-	test.AssertEquals(t, e.Title, "incorrect UUID format zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+	test.AssertEquals(t, e.Title, `incorrect UUID format in string "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"`)
 	test.AssertEquals(t, e.ID, "invalid_uuid")
 }
 
