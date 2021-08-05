@@ -607,7 +607,8 @@ func (j *jobEnqueuer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		default:
 			rest.ServerError(w, r, err)
-			metrics.Increment(fmt.Sprintf("enqueue.%s.error", name))
+			metrics.Increment("enqueue.error")
+			metrics.Increment("enqueue." + name + ".error")
 			return
 		}
 	}
