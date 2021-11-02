@@ -90,7 +90,10 @@ benchmark-ci:
 	go test -bench=. -run='^$$' -v ./...
 
 bench: | $(BENCHSTAT)
-	go test -p=1 -benchtime=2s -bench=. -run='^$$' ./... 2>&1 | $(BENCHSTAT) /dev/stdin
+	go list ./... | grep -v vendor | xargs go test -p=1 -benchtime=2s -bench=. -run='^$$' 2>&1 | $(BENCHSTAT) /dev/stdin
 
 sql:
 	sqlc generate
+
+cloc:
+	cloc --exclude-dir=vendor .
