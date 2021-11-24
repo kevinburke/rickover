@@ -149,6 +149,7 @@ func init() {
 }
 
 func serverHeaderHandler(h http.Handler) http.Handler {
+	version := "rickover/" + config.Version
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// hack, figure out how to put middleware on a subset of responses
 		if strings.HasPrefix(r.URL.Path, "/debug/pprof") {
@@ -158,7 +159,7 @@ func serverHeaderHandler(h http.Handler) http.Handler {
 		} else {
 			w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		}
-		w.Header().Set("Server", "rickover/"+config.Version)
+		w.Header().Set("Server", version)
 		h.ServeHTTP(w, r)
 	})
 }
