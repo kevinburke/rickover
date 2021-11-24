@@ -63,11 +63,15 @@ func RandomId(prefix string) types.PrefixUUID {
 
 func CreateJob(t testing.TB, j newmodels.CreateJobParams) newmodels.Job {
 	test.SetUp(t)
+	t.Helper()
 	if j.DeliveryStrategy == "" {
 		j.DeliveryStrategy = newmodels.DeliveryStrategyAtLeastOnce
 	}
 	if j.Attempts == 0 {
 		j.Attempts = 11
+	}
+	if !newmodels.DB.Connected() {
+		t.Fatal("must init newmodels.DB before use")
 	}
 	job, err := newmodels.DB.CreateJob(context.Background(), j)
 	test.AssertNotError(t, err, "")
@@ -107,6 +111,9 @@ func CreateQueuedJobOnly(t testing.TB, name string, data json.RawMessage) {
 // CreateQJ creates a job with a random name, and a random UUID.
 func CreateQJ(t testing.TB) *newmodels.QueuedJob {
 	t.Helper()
+	if !newmodels.DB.Connected() {
+		t.Fatal("must init newmodels.DB before use")
+	}
 	jobname := RandomId("jobtype")
 	job, err := newmodels.DB.CreateJob(context.Background(), newmodels.CreateJobParams{
 		Name:             jobname.String(),
@@ -150,6 +157,10 @@ func CreateAtMostOnceJob(t *testing.T, data json.RawMessage) (*newmodels.Job, *n
 
 func createJobAndQueuedJob(t testing.TB, j newmodels.CreateJobParams, data json.RawMessage, randomId bool) (*newmodels.Job, *newmodels.QueuedJob) {
 	test.SetUp(t)
+	t.Helper()
+	if !newmodels.DB.Connected() {
+		t.Fatal("must init newmodels.DB before use")
+	}
 	job, err := newmodels.DB.CreateJob(context.Background(), newmodels.CreateJobParams{
 		Name:             j.Name,
 		DeliveryStrategy: j.DeliveryStrategy,

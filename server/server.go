@@ -246,6 +246,11 @@ type CreateJobRequest = httptypes.CreateJobTypeRequest
 func getJobType(rx *regexp.Regexp, db *newmodels.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		jobName := rx.FindStringSubmatch(r.URL.Path)[1]
+		if db == nil || !db.Connected() {
+			rest.ServerError(w, r,
+				fmt.Errorf("cannot retrieve job without working database connection"))
+			return
+		}
 		job, err := db.GetJob(r.Context(), jobName)
 		if err != nil {
 			if err == sql.ErrNoRows {
@@ -324,6 +329,10 @@ func createJob(db *newmodels.Queries, test, useMetaShutdown bool) http.HandlerFu
 		}
 		if jr.Concurrency == 0 {
 			rest.BadRequest(w, r, createPositiveIntErr("Concurrency", r.URL.Path))
+			return
+		}
+		if db == nil || !db.Connected() {
+			rest.ServerError(w, r, fmt.Errorf("cannot create job without working database connection"))
 			return
 		}
 
