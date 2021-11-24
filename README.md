@@ -467,11 +467,25 @@ password for the downstream service (the user is hardcoded to "jobs"), and
 
 ## Run the tests
 
+First create the test database:
+
+```
+make test-install
+```
+
+Then run all migrations:
+
+```
+make migrate
+```
+
+Finally, you can run the tests:
+
 ```
 make test
 ```
 
-The race detector takes longer to run, so we only enable it in CircleCI, but
+The race detector takes longer to run, so we only enable it in CI, but
 you can run tests with the race detector enabled:
 
 ```

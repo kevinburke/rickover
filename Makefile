@@ -22,24 +22,29 @@ $(TRUNCATE_TABLES):
 $(STATICCHECK):
 	go get -u honnef.co/go/tools/cmd/staticcheck
 
+build:
+	go build ./...
+
 test-install:
-	#@ TODO not sure we use this anymore.
 	-createuser rickover --host localhost --superuser --createrole --createdb --inherit -U postgres
 	-createdb rickover --host localhost --owner=rickover -U postgres
 	-createdb rickover_test --host localhost --owner=rickover -U postgres
+	-psql --command='CREATE EXTENSION "uuid-ossp"' rickover_test
+
+migrate-ci:
+	/usr/bin/pg_ctlcluster --skip-systemctl-redirect 11-main start
+	sudo -u postgres psql -f ./bin/migrate
+	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
+	go get github.com/kevinburke/goose/cmd/goose
+	goose --env=github up
 
 lint: | $(STATICCHECK)
 	go vet ./...
 	$(STATICCHECK) ./...
 
-build:
-	go build ./...
-
-$(GODOCDOC):
-	go get -u github.com/kevinburke/godocdoc
-
-docs: | $(GODOCDOC)
-	$(GODOCDOC)
+docs:
+	go install github.com/kevinburke/godocdoc
+	godocdoc
 
 testonly:
 	envdir envs/test go test -p=1 -timeout 10s ./...
@@ -74,13 +79,6 @@ GOOSE:
 migrate: | $(GOOSE)
 	$(GOOSE) --env=development up
 	$(GOOSE) --env=test up
-
-migrate-ci:
-	/usr/bin/pg_ctlcluster --skip-systemctl-redirect 11-main start
-	sudo -u postgres psql -f ./bin/migrate
-	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
-	go get github.com/kevinburke/goose/cmd/goose
-	goose --env=github up
 
 $(BENCHSTAT):
 	go get -u golang.org/x/perf/cmd/benchstat
