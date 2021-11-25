@@ -19,8 +19,10 @@ import (
 )
 
 func main() {
+	start := time.Now()
 	concurrency := flag.Int("concurrency", 8, "Concurrency to use")
 	name := flag.String("name", "", "Job name")
+	count := flag.Int("count", 50000, "Number of jobs to enqueue")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -47,8 +49,7 @@ func main() {
 	sem := semaphore.New(16)
 	// Idea here is basically to insert enough jobs that the dequeuer always has
 	// work to do, no matter how long the benchmark takes to run.
-	count := 50000
-	for j := 0; j < count; j++ {
+	for j := 0; j < *count; j++ {
 		sem.Acquire()
 		wg.Add(1)
 		go func() {
@@ -65,5 +66,5 @@ func main() {
 		}()
 	}
 	wg.Wait()
-	fmt.Println("wrote", count, "queued jobs")
+	fmt.Println("wrote", *count, "queued jobs. each took: ", time.Duration(float64(*concurrency)*float64(time.Since(start))/float64(*count)))
 }
