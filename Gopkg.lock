@@ -34,12 +34,12 @@
   revision = "8a83ccc090f85476c00619c04fd46f37b973a031"
 
 [[projects]]
-  digest = "1:62637422795c7731020e31a0870ef9e9808b22c43a6b1f8e3ae1082c1f28ea7a"
+  digest = "1:ab90c25f51eddcbb17fe99d21e596ae72aba4002cc1ae2f71f888ef0d969e452"
   name = "github.com/kevinburke/go-simple-metrics"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ca866293b9565a00b1e69543f1a96f01b76f7bd0"
-  version = "1.0"
+  revision = "908577f012462b0a7844c3b02fd9f7736d3bddb7"
+  version = "1.1"
 
 [[projects]]
   digest = "1:413b8a48a1cb840a1cc144a1f9935f193e362608cd8f9464b6ebfd7d5ca68a0d"

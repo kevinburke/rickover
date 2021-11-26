@@ -4,9 +4,9 @@
 package metrics
 
 import (
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	godebug "github.com/kevinburke/go-debug"
@@ -14,7 +14,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 )
 
-const Version = "0.3"
+const Version = "1.1"
 
 var debug = godebug.Debug("metrics")
 
@@ -27,7 +27,7 @@ func getWithNamespace(metricName string) string {
 	if Namespace == "" {
 		return metricName
 	} else {
-		return fmt.Sprintf("%s.%s", Namespace, metricName)
+		return Namespace + "." + metricName
 	}
 }
 
@@ -55,7 +55,7 @@ func Increment(name string) {
 	mn := getWithNamespace(name)
 	c := metrics.GetOrRegisterCounter(mn, nil)
 	c.Inc(1)
-	debug("increment %s 1", name)
+	debug("increment " + name + " 1")
 }
 
 // Measure that the given metric has the given value.
@@ -63,7 +63,7 @@ func Measure(name string, value int64) {
 	mn := getWithNamespace(name)
 	g := metrics.GetOrRegisterGauge(mn, nil)
 	g.Update(value)
-	debug("measure %s %d", name, value)
+	debug("measure " + name + " " + strconv.FormatInt(value, 10))
 }
 
 // Add a new timing measurement for the given metric.
@@ -71,5 +71,5 @@ func Time(name string, value time.Duration) {
 	mn := getWithNamespace(name)
 	t := metrics.GetOrRegisterTimer(mn, nil)
 	t.Update(value)
-	debug("time %s %v", name, value)
+	debug("time " + name + " " + value.String())
 }
