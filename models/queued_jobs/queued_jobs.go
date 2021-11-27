@@ -154,6 +154,10 @@ func Acquire(ctx context.Context, name string, workerID int) (*newmodels.QueuedJ
 	}
 	if useRecursiveMethod {
 		var i newmodels.QueuedJob
+		// TODO: sqlc can't parse this query currently, but Postgres can.
+		// Fix this ticket, and then once it's fixed find the next issue and
+		// work up from there.
+		// https://github.com/kyleconroy/sqlc/issues/1313
 		err = tx.QueryRowContext(ctx, `
 WITH RECURSIVE lock_candidates (n) AS (
     -- Pick a bunch of candidate jobs from the database
