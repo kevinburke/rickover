@@ -147,7 +147,7 @@ WHERE jobs.name = $2
 AND NOT EXISTS (
 	SELECT 1 FROM archived_jobs WHERE id = $1
 )
-RETURNING id, name, attempts, run_after, expires_at, created_at, updated_at, status, data, auto_id
+RETURNING attempts, status, created_at, updated_at
 `
 
 type EnqueueJobParams struct {
@@ -158,7 +158,14 @@ type EnqueueJobParams struct {
 	Data      json.RawMessage  `json:"data"`
 }
 
-func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (QueuedJob, error) {
+type EnqueueJobRow struct {
+	Attempts  int16     `json:"attempts"`
+	Status    JobStatus `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (EnqueueJobRow, error) {
 	row := q.queryRow(ctx, q.enqueueJobStmt, enqueueJob,
 		arg.ID,
 		arg.Name,
@@ -166,18 +173,12 @@ func (q *Queries) EnqueueJob(ctx context.Context, arg EnqueueJobParams) (QueuedJ
 		arg.ExpiresAt,
 		arg.Data,
 	)
-	var i QueuedJob
+	var i EnqueueJobRow
 	err := row.Scan(
-		&i.ID,
-		&i.Name,
 		&i.Attempts,
-		&i.RunAfter,
-		&i.ExpiresAt,
+		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Status,
-		&i.Data,
-		&i.AutoID,
 	)
 	return i, err
 }

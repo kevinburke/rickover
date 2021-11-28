@@ -13,7 +13,7 @@ import (
 // sql.ErrNoRows will be returned if the `name` does not exist in the jobs
 // table. Otherwise the QueuedJob will be returned.
 func Enqueue(ctx context.Context, db *newmodels.Queries, params newmodels.EnqueueJobParams) (newmodels.QueuedJob, error) {
-	qj, err := db.EnqueueJob(ctx, params)
+	jobrow, err := db.EnqueueJob(ctx, params)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e := &queued_jobs.UnknownOrArchivedError{
@@ -22,6 +22,17 @@ func Enqueue(ctx context.Context, db *newmodels.Queries, params newmodels.Enqueu
 			return newmodels.QueuedJob{}, e
 		}
 		return newmodels.QueuedJob{}, err
+	}
+	qj := newmodels.QueuedJob{
+		ID:        params.ID,
+		Name:      params.Name,
+		RunAfter:  params.RunAfter,
+		ExpiresAt: params.ExpiresAt,
+		Data:      params.Data,
+		Status:    jobrow.Status,
+		Attempts:  jobrow.Attempts,
+		CreatedAt: jobrow.CreatedAt,
+		UpdatedAt: jobrow.UpdatedAt,
 	}
 	qj.ID.Prefix = queued_jobs.Prefix
 	return qj, err

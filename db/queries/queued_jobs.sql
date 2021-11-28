@@ -12,7 +12,7 @@ WHERE jobs.name = $2
 AND NOT EXISTS (
 	SELECT 1 FROM archived_jobs WHERE id = $1
 )
-RETURNING *;
+RETURNING attempts, status, created_at, updated_at;
 
 -- name: EnqueueJobFast :exec
 INSERT INTO queued_jobs (id,

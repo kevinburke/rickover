@@ -43,7 +43,7 @@ var StuckJobLimit = 100
 //
 // Deprecated: use services.Enqueue instead.
 func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
-	qj, err := newmodels.DB.EnqueueJob(context.TODO(), params)
+	jobrow, err := newmodels.DB.EnqueueJob(context.TODO(), params)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			e := &UnknownOrArchivedError{
@@ -53,7 +53,17 @@ func Enqueue(params newmodels.EnqueueJobParams) (*newmodels.QueuedJob, error) {
 		}
 		return nil, err
 	}
-	qj.ID.Prefix = Prefix
+	qj := newmodels.QueuedJob{
+		ID:        params.ID,
+		Name:      params.Name,
+		RunAfter:  params.RunAfter,
+		ExpiresAt: params.ExpiresAt,
+		Data:      params.Data,
+		Status:    jobrow.Status,
+		Attempts:  jobrow.Attempts,
+		CreatedAt: jobrow.CreatedAt,
+		UpdatedAt: jobrow.UpdatedAt,
+	}
 	return &qj, err
 }
 
