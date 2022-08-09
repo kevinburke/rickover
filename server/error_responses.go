@@ -73,12 +73,6 @@ func forbidden(w http.ResponseWriter, err *resterror.Error) {
 	json.NewEncoder(w).Encode(err)
 }
 
-var serverError = resterror.Error{
-	Status: http.StatusInternalServerError,
-	ID:     "server_error",
-	Title:  "Unexpected server error. Please try again",
-}
-
 func tooLarge(w http.ResponseWriter) {
 	resp := &resterror.Error{
 		ID:    "entity_too_large",
