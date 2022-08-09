@@ -154,7 +154,8 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 		pool.AddDequeuer(ctx, jp)
 	}
 	defer cancel()
-	<-time.After(100 * time.Millisecond)
+	// GH CI was having issues with 100ms timeout
+	<-time.After(200 * time.Millisecond)
 	val := atomic.LoadInt32(&c1)
 	test.Assert(t, val == int32(1), fmt.Sprintf("request should have been called once, was called %d times", val))
 }
