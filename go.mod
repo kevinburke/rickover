@@ -12,7 +12,7 @@ require (
 	github.com/kevinburke/semaphore v0.0.0-20190717215912-5c0f24b0593d
 	github.com/lib/pq v1.10.4
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
-	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab
+	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664
 )
 
 require (
