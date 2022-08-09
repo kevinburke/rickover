@@ -155,7 +155,8 @@ func testWorkerMakesExactlyOneRequest(t *testing.T) {
 	}
 	defer cancel()
 	<-time.After(100 * time.Millisecond)
-	test.Assert(t, atomic.LoadInt32(&c1) == int32(1), "request called once")
+	val := atomic.LoadInt32(&c1)
+	test.Assert(t, val == int32(1), fmt.Sprintf("request should have been called once, was called %d times", val))
 }
 
 func TestCreatePools(t *testing.T) {
