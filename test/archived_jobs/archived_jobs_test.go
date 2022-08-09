@@ -37,7 +37,7 @@ func testCreateJobReturnsJob(t *testing.T) {
 	test.AssertEquals(t, aj.Attempts, int16(qj.Attempts))
 	test.AssertEquals(t, string(aj.Data), "{\"baz\": 17, \"foo\": [\"bar\", \"pik_345\"]}")
 	test.AssertEquals(t, aj.ExpiresAt.Valid, true)
-	test.AssertEquals(t, aj.ExpiresAt.Time.Round(time.Millisecond), qj.ExpiresAt.Time.Round(time.Millisecond))
+	test.Assert(t, aj.ExpiresAt.Time.Round(time.Millisecond).Equal(qj.ExpiresAt.Time.Round(time.Millisecond)), "times are equal")
 
 	diff := time.Since(aj.CreatedAt)
 	test.Assert(t, diff < 100*time.Millisecond, fmt.Sprintf("CreatedAt should be close to the current time, got %v", diff))
