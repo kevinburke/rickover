@@ -8,19 +8,23 @@ else
 	DATABASE_URL := 'postgres://rickover@localhost:5432/rickover?sslmode=disable&timezone=UTC'
 endif
 
+export GO111MODULE=on
+
 BENCHSTAT := $(GOPATH)/bin/benchstat
 BUMP_VERSION := $(GOPATH)/bin/bump_version
 GODOCDOC := $(GOPATH)/bin/godocdoc
 GOOSE := $(GOPATH)/bin/goose
-STATICCHECK := $(GOPATH)/bin/staticcheck
 TRUNCATE_TABLES := $(GOPATH)/bin/rickover-truncate-tables
 
 # Just run it every time, we could get fancy with find() tricks, but eh.
 $(TRUNCATE_TABLES):
 	go install ./test/rickover-truncate-tables
 
-$(STATICCHECK):
-	go get -u honnef.co/go/tools/cmd/staticcheck
+staticcheck:
+	go install honnef.co/go/tools/cmd/staticcheck@latest
+
+goose:
+	go install github.com/kevinburke/goose/cmd/goose@latest
 
 build:
 	go build ./...
@@ -36,12 +40,11 @@ migrate-ci:
 	sudo -u postgres /usr/bin/pg_ctlcluster --skip-systemctl-redirect 14 main start
 	sudo -u postgres psql -f ./bin/migrate
 	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
-	go get github.com/kevinburke/goose/cmd/goose
 	goose --env=github up
 
-lint: | $(STATICCHECK)
+lint:
 	go vet ./...
-	$(STATICCHECK) ./...
+	staticcheck ./...
 
 docs:
 	go install github.com/kevinburke/godocdoc

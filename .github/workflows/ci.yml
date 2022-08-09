@@ -15,9 +15,13 @@ jobs:
       with:
          go-version: 1.19.x
 
+    - run: go env
+
     # staticcheck needs this for GOPATH
     - run: echo "GOPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
     - run: echo "PATH=$GITHUB_WORKSPACE/bin:$PATH" >> $GITHUB_ENV
+
+    - run: go env
 
     - uses: actions/cache@master
       with:
@@ -36,12 +40,16 @@ jobs:
       run: go install github.com/kevinburke/envdir@latest
 
     - name: Start Postgres, install Goose, migrate database
-      run: envdir envs/github make migrate-ci
       working-directory: ./src/github.com/kevinburke/rickover
+      run: |
+        make goose
+        envdir envs/github make migrate-ci
 
     - name: Lint
-      run: envdir envs/github make lint
       working-directory: ./src/github.com/kevinburke/rickover
+      run: |
+        make staticcheck
+        envdir envs/github make lint
 
     - name: Test rickover
       # github env has correct database URL
