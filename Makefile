@@ -38,7 +38,8 @@ test-install:
 migrate-ci:
 	# PG 14 is installed by default on the ubuntu-latest image
 	sudo -u postgres /usr/bin/pg_ctlcluster --skip-systemctl-redirect 14 main start
-	sudo -u postgres psql -f ./bin/migrate
+	cp -f ./bin/migrate /tmp
+	sudo -u postgres psql -f /tmp/migrate
 	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
 	goose --env=github up
 
