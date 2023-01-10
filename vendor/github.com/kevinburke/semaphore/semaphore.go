@@ -47,7 +47,8 @@ func (s *Semaphore) Acquire() {
 }
 
 // AcquireContext attempts to acquire a resource. AcquireContext returns false
-// if we were unable to acquire a resource.
+// if we were unable to acquire a resource before the Context timed out or was
+// canceled.
 func (s *Semaphore) AcquireContext(ctx context.Context) bool {
 	select {
 	case <-ctx.Done():
@@ -60,7 +61,8 @@ func (s *Semaphore) AcquireContext(ctx context.Context) bool {
 	}
 }
 
-// Release releases one worker.
+// Release releases one worker. Release panics if no workers are available to be
+// released.
 func (s *Semaphore) Release() {
 	s.mu.Lock()
 	avail := s.avail
@@ -74,6 +76,7 @@ func (s *Semaphore) Release() {
 	s.mu.Unlock()
 }
 
+// Drain releases all resources that have been acquired by this semaphore.
 func (s *Semaphore) Drain() {
 	for s.avail < s.n {
 		s.Release()

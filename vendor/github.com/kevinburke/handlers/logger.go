@@ -20,7 +20,7 @@ import (
 	"github.com/inconshreveable/log15"
 	"github.com/kevinburke/rest"
 	"github.com/mattn/go-colorable"
-	"github.com/mattn/go-isatty"
+	"golang.org/x/term"
 )
 
 const termTimeFormat = "15:04:05.000-07:00"
@@ -51,7 +51,7 @@ func NewLogger() log15.Logger {
 func NewLoggerLevel(lvl log15.Lvl) log15.Logger {
 	l := log15.New()
 	var h log15.Handler
-	if isatty.IsTerminal(os.Stdout.Fd()) {
+	if term.IsTerminal(int(os.Stdout.Fd())) {
 		h = log15.StreamHandler(colorable.NewColorableStdout(), termFormat())
 	} else {
 		h = log15.StreamHandler(os.Stdout, logfmtFormat())
@@ -64,7 +64,6 @@ func NewLoggerLevel(lvl log15.Lvl) log15.Logger {
 // format for key/value pairs.
 //
 // For more details see: http://godoc.org/github.com/kr/logfmt
-//
 func logfmtFormat() log15.Format {
 	return log15.FormatFunc(func(r *log15.Record) []byte {
 		common := []interface{}{r.KeyNames.Time, r.Time, r.KeyNames.Lvl, r.Lvl}

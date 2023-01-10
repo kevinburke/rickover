@@ -21,11 +21,13 @@ type (
 )
 
 var (
-	NewClient        = restclient.New
-	NewBearerClient  = restclient.NewBearerClient
-	DefaultTransport = restclient.DefaultTransport
-	JSON             = restclient.JSON
-	FormURLEncoded   = restclient.FormURLEncoded
+	NewClient          = restclient.New
+	NewBearerClient    = restclient.NewBearerClient
+	DefaultTransport   = restclient.DefaultTransport
+	JSON               = restclient.JSON
+	FormURLEncoded     = restclient.FormURLEncoded
+	Version            = restclient.Version
+	DefaultErrorParser = restclient.DefaultErrorParser
 )
 
 const jsonContentType = "application/json; charset=utf-8"

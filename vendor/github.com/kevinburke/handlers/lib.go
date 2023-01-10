@@ -3,9 +3,9 @@
 // The general format of the middlewares in this package is to wrap an existing
 // http.Handler in another one. So if you have a ServeMux, you can simply do:
 //
-//     mux := http.NewServeMux()
-//     h := handlers.Log(handlers.Debug(mux))
-//     http.ListenAndServe(":5050", h)
+//	mux := http.NewServeMux()
+//	h := handlers.Log(handlers.Debug(mux))
+//	http.ListenAndServe(":5050", h)
 //
 // And wrap as many handlers as you'd like using that idiom.
 package handlers
@@ -32,7 +32,7 @@ import (
 	"github.com/kevinburke/rest/resterror"
 )
 
-const Version = "0.41"
+const Version = "0.43"
 
 func push(w http.ResponseWriter, target string, opts *http.PushOptions) error {
 	if pusher, ok := w.(http.Pusher); ok {
@@ -319,6 +319,7 @@ func writeLog(l log.Logger, r *http.Request, u url.URL, t time.Time, status int,
 		"time", strconv.FormatInt(timeSinceMs(t), 10),
 		"bytes", strconv.Itoa(size),
 		"status", strconv.Itoa(status),
+		// Set X-Forwarded-For to pass through headers from a proxy.
 		"remote_addr", getRemoteIP(r),
 		"host", r.Host,
 		"user_agent", r.UserAgent(),
