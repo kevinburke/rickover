@@ -13,7 +13,7 @@ jobs:
 
     - uses: actions/setup-go@v3
       with:
-         go-version: 1.19.x
+         go-version: 1.21.x
 
     # staticcheck needs this for GOPATH
     - run: echo "GOPATH=$GITHUB_WORKSPACE" >> $GITHUB_ENV
