@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"runtime"
@@ -23,7 +22,7 @@ var JSON UploadType = "application/json"
 // FormURLEncoded specifies you'd like to upload form-urlencoded data.
 var FormURLEncoded UploadType = "application/x-www-form-urlencoded"
 
-const Version = "2.6"
+const Version = "2.7"
 
 var ua string
 
@@ -134,7 +133,7 @@ func (c *Client) NewRequestWithContext(ctx context.Context, method, path string,
 	// see for example https://github.com/meterup/github-release/issues/1 - if
 	// the path contains the full URL including the base, strip it out
 	path = strings.TrimPrefix(path, c.Base)
-	req, err := http.NewRequest(method, c.Base+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, c.Base+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +151,7 @@ func (c *Client) NewRequestWithContext(ctx context.Context, method, path string,
 		if uploadType == "" {
 			uploadType = JSON
 		}
-		req.Header.Add("Content-Type", fmt.Sprintf("%s; charset=utf-8", uploadType))
+		req.Header.Add("Content-Type", string(uploadType)+"; charset=utf-8")
 	}
 	return req, nil
 }
@@ -186,7 +185,7 @@ func (c *Client) Do(r *http.Request, v interface{}) error {
 		return DefaultErrorParser(res)
 	}
 
-	resBody, err := ioutil.ReadAll(res.Body)
+	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}
@@ -200,7 +199,7 @@ func (c *Client) Do(r *http.Request, v interface{}) error {
 // DefaultErrorParser attempts to parse the response body as a rest.Error. If
 // it cannot do so, return an error containing the entire response body.
 func DefaultErrorParser(resp *http.Response) error {
-	resBody, err := ioutil.ReadAll(resp.Body)
+	resBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

@@ -24,6 +24,7 @@ import (
 )
 
 const termTimeFormat = "15:04:05.000-07:00"
+const termDateTimeFormat = "2006-01-02T15:04:05.000-07:00"
 const timeFormat = "2006-01-02T15:04:05.000000-07:00"
 
 const floatFormat = 'f'
@@ -66,7 +67,7 @@ func NewLoggerLevel(lvl log15.Lvl) log15.Logger {
 // For more details see: http://godoc.org/github.com/kr/logfmt
 func logfmtFormat() log15.Format {
 	return log15.FormatFunc(func(r *log15.Record) []byte {
-		common := []interface{}{r.KeyNames.Time, r.Time, r.KeyNames.Lvl, r.Lvl}
+		common := []interface{}{r.KeyNames.Time, r.Time.Format(termDateTimeFormat), r.KeyNames.Lvl, r.Lvl}
 		if len(r.Msg) > 0 {
 			common = append(common, r.KeyNames.Msg, r.Msg)
 		}
