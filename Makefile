@@ -36,8 +36,13 @@ test-install:
 	-psql --command='CREATE EXTENSION "uuid-ossp"' rickover_test
 
 migrate-ci:
-	# PG 14 is installed by default on the ubuntu-latest image
-	sudo -u postgres /usr/bin/pg_ctlcluster --skip-systemctl-redirect 14 main start
+	set -eu; \
+	cluster="$$(/usr/bin/pg_lsclusters --no-header | awk '$$2 == "main" { print $$1 " " $$2; exit }')"; \
+	if [ -z "$$cluster" ]; then \
+		echo "no postgres main cluster found via pg_lsclusters" >&2; \
+		exit 1; \
+	fi; \
+	sudo -u postgres /usr/bin/pg_ctlcluster --skip-systemctl-redirect $$cluster start
 	cp -f ./bin/migrate /tmp
 	sudo -u postgres psql -f /tmp/migrate
 	psql --command='CREATE EXTENSION "uuid-ossp"' $$(cat envs/github/DATABASE_URL)
