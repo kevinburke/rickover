@@ -8,7 +8,7 @@ test:
 
 github:
     driver: postgres
-    open: user=rickover password=hunter2 dbname=rickover_test sslmode=disable
+    open: host=localhost user=rickover password=hunter2 dbname=rickover_test sslmode=disable
 
 cluster:
     driver: postgres
